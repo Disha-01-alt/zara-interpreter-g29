@@ -1,16 +1,16 @@
-package ast;
-
-import runtime.Environment;
+package zara;
 
 public class VariableNode implements Expression {
     private final String name;
 
     public VariableNode(String name) {
+        // TODO: Store name
         this.name = name;
     }
 
     @Override
     public Object evaluate(Environment env) {
-        return env.get(name);
+        // TODO: return env.get(name)
+        return null;
     }
 }

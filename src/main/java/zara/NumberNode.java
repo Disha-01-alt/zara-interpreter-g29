@@ -1,16 +1,16 @@
-package ast;
-
-import runtime.Environment;
+package zara;
 
 public class NumberNode implements Expression {
     private final double value;
 
     public NumberNode(double value) {
+        // TODO: Store value
         this.value = value;
     }
 
     @Override
     public Object evaluate(Environment env) {
-        return value;
+        // TODO: Return stored number
+        return null;
     }
 }
