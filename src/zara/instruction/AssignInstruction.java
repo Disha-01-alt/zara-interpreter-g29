@@ -15,5 +15,6 @@ public class AssignInstruction implements Instruction {
     @Override
     public void execute(Environment env) {
         // TODO: Execute Assignment
+        env.set(variableName, expression.evaluate(env));
     }
 }
