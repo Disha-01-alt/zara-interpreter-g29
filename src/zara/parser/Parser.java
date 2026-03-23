@@ -1,27 +1,3 @@
-//package zara.parser;
-//
-//import zara.ast.Expression;
-//import zara.instruction.Instruction;
-//import zara.lexer.Token;
-//
-//import java.util.ArrayList;
-//import java.util.List;
-//
-//public class Parser {
-//    private final List<Token> tokens;
-//    private int current = 0;
-//
-//    public Parser(List<Token> tokens) {
-//        this.tokens = tokens;
-//    }
-//
-//    public List<Instruction> parse() {
-//        List<Instruction> instructions = new ArrayList<>();
-//        // TODO: Parser implementation
-//        return instructions;
-//    }
-//}
-
 package zara.parser;
 
 import zara.ast.*;
@@ -43,8 +19,8 @@ public class Parser {
     public List<Instruction> parse() {
         List<Instruction> instructions = new ArrayList<>();
         while (!isAtEnd()) {
-            // Skip any stray newlines between instructions
-            if (match(TokenType.NEWLINE)) continue;
+
+            if (match(TokenType.NEWLINE)) continue;   // to Skip any stray newlines between instructions
             instructions.add(parseInstruction());
         }
         return instructions;
@@ -104,13 +80,12 @@ public class Parser {
     // --- Expression Precedence ---
 
     private Expression parseComparison() {
-        Expression expr = parseExpression();
-        // Your enum doesn't have LESS or EQUAL_EQUAL yet,
-        // but I've kept GREATER_THAN to match your enum.
-        while (match(TokenType.GREATER_THAN)) {
-            String op = previous().getValue();
-            Expression right = parseExpression();
-            expr = new BinaryOpNode(expr, op, right);
+        Expression expr = parseExpression();   // 1. First, get the left side (handles +, -, *, / via parseExpression)
+        while (match(TokenType.GREATER_THAN, TokenType.LESS_THAN, TokenType.EQUAL_EQUAL)) {  // 2. Check for any of the three comparison operators
+            Token operator = previous();
+            String op = operator.getValue();
+            Expression right = parseExpression();  // 3. Get the right side
+            expr = new BinaryOpNode(expr, op, right);  // 4. Wrap them together in a BinaryOpNode
         }
         return expr;
     }
@@ -124,6 +99,7 @@ public class Parser {
         }
         return expr;
     }
+
 
     private Expression parseTerm() {
         Expression expr = parsePrimary();

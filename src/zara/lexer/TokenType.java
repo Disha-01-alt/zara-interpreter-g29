@@ -14,6 +14,8 @@ public enum TokenType {
     MULTIPLY,     // *
     DIVIDE,       // /
     GREATER_THAN, // >
+    LESS_THAN,    // <
+    EQUAL_EQUAL,  // ==
     COLON,        // :
 
     // Special
