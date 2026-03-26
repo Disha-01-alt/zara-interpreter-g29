@@ -2,7 +2,7 @@
 
 > **Language:** ZARA (Zero-ceremony Arithmetic and Reasoning Assembler)  
 > **Course:** Advanced OOP in Java — Sitare University  
-> **Document Type:** Engineering Design & Architecture
+> **Document Type:** Engineering Design & Architecture (v2)
 
 ---
 
@@ -19,12 +19,24 @@
    - 5.4 [Instruction Layer](#54-instruction-layer)
    - 5.5 [Tokenizer](#55-tokenizer)
    - 5.6 [Parser](#56-parser)
-   - 5.7 [Evaluator / Interpreter Entry Point](#57-evaluator--interpreter-entry-point)
+   - 5.7 [Interpreter Entry Point](#57-interpreter-entry-point)
 6. [Design Principles Applied](#6-design-principles-applied)
 7. [Key Design Decisions & Why](#7-key-design-decisions--why)
 8. [Error Handling Strategy](#8-error-handling-strategy)
 9. [Extension Points](#9-extension-points)
 10. [What NOT To Do](#10-what-not-to-do)
+
+---
+
+## How to Read This Document
+
+This is a **design document**, not an implementation guide. It describes:
+
+- What each component is responsible for
+- What contract (interface/signature) it exposes
+- Why each design decision was made
+
+It does **not** describe how to write the method bodies — that is the implementation work your team must do. Where code appears, it shows **structure and contracts only**, with bodies intentionally left empty. The reasoning sections explain the thinking; translating that thinking into working code is yours to do.
 
 ---
 
@@ -38,9 +50,9 @@ Before writing a single line of code, the team must agree on what kind of system
 |------|---------------------------|
 | **High Cohesion** | Every class has one clear job. `Tokenizer` only tokenizes. `Environment` only stores variables. They do not bleed into each other. |
 | **Loose Coupling** | Classes communicate through interfaces and contracts, not concrete implementations. The `Parser` does not know or care how tokens were produced. |
-| **Open/Closed** | Adding a new instruction type (e.g., `while` loop) should require adding a new class, not modifying existing ones. |
-| **Liskov Substitution** | Any `Expression` can be substituted for any other `Expression`. Any `Instruction` can be substituted for any other `Instruction`. The evaluator never needs to know which concrete type it holds. |
-| **Separation of Concerns** | Lexical analysis (Tokenizer), syntactic analysis (Parser), semantic execution (Evaluator) are completely isolated. This is not just academic — it means bugs in one layer don't contaminate others. |
+| **Open/Closed** | Adding a new instruction type (e.g., a `while` loop) should require adding a new class, not modifying existing ones. |
+| **Liskov Substitution** | Any `Expression` can stand in for any other `Expression`. Any `Instruction` can stand in for any other `Instruction`. The executor loop never needs to know which concrete type it holds. |
+| **Separation of Concerns** | Lexical analysis (Tokenizer), syntactic analysis (Parser), and semantic execution (Evaluator) are completely isolated layers. Bugs in one layer cannot contaminate others. |
 
 ---
 
@@ -57,27 +69,27 @@ Source Code (.zara file)
          │  List<Token>
          ▼
 ┌──────────────────┐
-│     Parser       │  TOKEN stream → INSTRUCTION TREE
+│     Parser       │  TOKEN stream → INSTRUCTION LIST
 │                  │  Knows only: grammar rules of ZARA
 └────────┬─────────┘
          │  List<Instruction>
          ▼
-┌──────────────────┐
-│   Environment    │  Runtime variable store (shared state)
-│                  │  Knows only: variable names → values
-└────────┬─────────┘
-         │  (injected into every Instruction.execute())
+┌──────────────────────────┐
+│  Interpreter Executor    │  Walks the instruction list
+│  (in Interpreter.run())  │  Calls .execute(env) on each
+└────────┬─────────────────┘
+         │  reads/writes
          ▼
 ┌──────────────────┐
-│  Instruction     │  Walks the list, executes each node
-│  Executor Loop   │  Knows only: call .execute(env)
-└────────┬─────────┘
+│   Environment    │  Runtime variable store
+│                  │  variable name → current value
+└──────────────────┘
          │
          ▼
     Program Output (stdout)
 ```
 
-The three stages are intentionally **hermetic** — they share data structures (tokens, instructions), not behavior. This allows each stage to be tested and reasoned about in complete isolation.
+The three stages — tokenizing, parsing, executing — are intentionally **hermetic**. They share data structures (tokens, instructions), not behavior. Each can be built, tested, and reasoned about in complete isolation.
 
 ---
 
@@ -95,28 +107,28 @@ zara-interpreter/
 │               ├── Interpreter.java                 # Pipeline orchestrator
 │               │
 │               ├── lexer/                           # Stage 1: Tokenization
-│               │   ├── TokenType.java               # Enum of all token kinds
-│               │   ├── Token.java                   # Immutable token value object
-│               │   └── Tokenizer.java               # Source → List<Token>
+│               │   ├── TokenType.java               # Enum — every kind of token ZARA can produce
+│               │   ├── Token.java                   # Immutable value object — one piece of source
+│               │   └── Tokenizer.java               # Reads source String → List<Token>
 │               │
-│               ├── ast/                             # Stage 2: Expression Tree Nodes
-│               │   ├── Expression.java              # Interface — evaluate(Environment)
-│               │   ├── NumberNode.java
-│               │   ├── StringNode.java
-│               │   ├── VariableNode.java
-│               │   └── BinaryOpNode.java
+│               ├── ast/                             # Expression tree nodes (pure data, no I/O)
+│               │   ├── Expression.java              # Interface: evaluate(Environment) → Object
+│               │   ├── NumberNode.java              # Literal number
+│               │   ├── StringNode.java              # Literal string
+│               │   ├── VariableNode.java            # Variable reference
+│               │   └── BinaryOpNode.java            # Two expressions joined by an operator
 │               │
-│               ├── runtime/                         # Stage 3: Runtime state
-│               │   └── Environment.java             # Variable store Map<String, Object>
+│               ├── runtime/                         # Runtime state
+│               │   └── Environment.java             # Variable store: name → value
 │               │
-│               ├── instruction/                     # Stage 3: Execution nodes
-│               │   ├── Instruction.java             # Interface — execute(Environment)
-│               │   ├── AssignInstruction.java
-│               │   ├── PrintInstruction.java
-│               │   ├── IfInstruction.java
-│               │   └── RepeatInstruction.java
+│               ├── instruction/                     # Executable instruction nodes
+│               │   ├── Instruction.java             # Interface: execute(Environment) → void
+│               │   ├── AssignInstruction.java       # set x = <expr>
+│               │   ├── PrintInstruction.java        # show <expr>
+│               │   ├── IfInstruction.java           # when <cond>: <block>
+│               │   └── RepeatInstruction.java       # loop <n>: <block>
 │               │
-│               └── parser/                          # Stage 2: Token list → Instruction list
+│               └── parser/                          # Stage 2: tokens → instructions
 │                   └── Parser.java
 │
 ├── test/
@@ -131,7 +143,7 @@ zara-interpreter/
 │           ├── instruction/
 │           │   └── InstructionTest.java
 │           └── integration/
-│               └── InterpreterIntegrationTest.java  # Runs all 4 sample programs
+│               └── InterpreterIntegrationTest.java
 │
 ├── samples/
 │   ├── program1_arithmetic.zara
@@ -144,118 +156,89 @@ zara-interpreter/
 
 ### Why this directory layout?
 
-The package structure mirrors the pipeline stages. A developer reading `zara/lexer/` immediately knows they are looking at tokenization code, nothing else. The `ast/` package is purely data — no I/O, no side effects. The `instruction/` package is purely behavior. This is not cosmetic; it enforces that when you open a class, you already know what kind of thing it is.
+The package structure mirrors the pipeline stages directly. When you open `zara/lexer/`, you are looking at tokenization code only. The `ast/` package is pure data — no I/O, no side effects. The `instruction/` package is pure behavior. This is not cosmetic; it enforces that every class has a clear home and a clear job before a single line is written.
 
 ---
 
 ## 4. The Pipeline: How Execution Flows
 
-Understanding this end-to-end before writing any code is critical.
+Understanding this end-to-end before writing any code is essential.
 
+**Example input line:** `set result = x + y * 2`
+
+**Stage 1 — Tokenizer output:**
 ```
-Input: "set result = x + y * 2"
-
-STAGE 1 — Tokenizer produces:
-  [KEYWORD:"set", IDENTIFIER:"result", ASSIGN:"=", IDENTIFIER:"x",
-   PLUS:"+", IDENTIFIER:"y", STAR:"*", NUMBER:"2", NEWLINE, EOF]
-
-STAGE 2 — Parser consumes tokens, builds:
-  AssignInstruction {
-      name: "result",
-      expression: BinaryOpNode {
-          left:  VariableNode { name: "x" },
-          op:    "+",
-          right: BinaryOpNode {
-              left:  VariableNode { name: "y" },
-              op:    "*",
-              right: NumberNode { value: 2.0 }
-          }
-      }
-  }
-
-STAGE 3 — Evaluator calls:
-  instruction.execute(env)
-    → expression.evaluate(env)
-      → BinaryOpNode(+).evaluate(env)
-          left  = VariableNode("x").evaluate(env)  → env.get("x") → 10.0
-          right = BinaryOpNode(*).evaluate(env)
-              left  = VariableNode("y").evaluate(env) → env.get("y") → 3.0
-              right = NumberNode(2.0).evaluate(env)   → 2.0
-              result = 3.0 * 2.0 = 6.0
-          result = 10.0 + 6.0 = 16.0
-    → env.set("result", 16.0)
-
-Output stored: result = 16.0
+SET | IDENTIFIER("result") | ASSIGN | IDENTIFIER("x") |
+PLUS | IDENTIFIER("y") | STAR | NUMBER("2") | NEWLINE
 ```
 
-Notice: **operator precedence is handled entirely by tree shape**, not by any special logic. `*` sits deeper in the tree than `+`, so it evaluates first. The Parser is responsible for constructing this shape correctly via recursive descent.
+**Stage 2 — Parser output (tree structure):**
+```
+AssignInstruction
+  name: "result"
+  expression:
+    BinaryOpNode("+")
+      left:  VariableNode("x")
+      right: BinaryOpNode("*")
+                left:  VariableNode("y")
+                right: NumberNode(2.0)
+```
+
+**Stage 3 — Execution (assuming x=10, y=3 in Environment):**
+```
+AssignInstruction.execute(env)
+  → expression.evaluate(env)
+    → BinaryOpNode("+").evaluate(env)
+        left  → VariableNode("x").evaluate(env) → env.get("x") → 10.0
+        right → BinaryOpNode("*").evaluate(env)
+                  left  → VariableNode("y").evaluate(env) → 3.0
+                  right → NumberNode(2.0).evaluate(env)   → 2.0
+                  result = 3.0 * 2.0 = 6.0
+        result = 10.0 + 6.0 = 16.0
+  → env.set("result", 16.0)
+```
+
+The key insight here is that **operator precedence is handled entirely by tree shape** — `*` sits deeper in the tree than `+`, so it evaluates first. No special-case logic is needed anywhere. The Parser is responsible for constructing this correct shape.
 
 ---
 
 ## 5. Module-by-Module Design
 
+> **Convention used below:** Code blocks show contracts and field declarations only. Method bodies are left for the team to implement. The reasoning after each block is what matters — it explains the decisions that constrain what the implementation must do.
+
+---
+
 ### 5.1 Token Layer
 
 **Package:** `zara.lexer`
 
-#### `TokenType.java`
+#### `TokenType.java` — What to include
 
-```java
-public enum TokenType {
-    // Literals
-    NUMBER,        // 10, 3.14
-    STRING,        // "hello"
-    IDENTIFIER,    // x, result, score
+An enum listing every distinct kind of token ZARA can produce. Every team member should be able to read this enum and immediately understand the full vocabulary of the language.
 
-    // ZARA Keywords
-    SET,           // set
-    SHOW,          // show
-    WHEN,          // when
-    LOOP,          // loop
+Minimum required entries:
+- Literals: `NUMBER`, `STRING`, `IDENTIFIER`
+- ZARA keywords: `SET`, `SHOW`, `WHEN`, `LOOP`
+- Arithmetic operators: `PLUS`, `MINUS`, `STAR`, `SLASH`
+- Comparison operators: `GREATER`, `LESS`
+- Assignment: `ASSIGN` (the `=` sign)
+- Structure: `COLON`, `NEWLINE`, `EOF`
 
-    // Operators
-    PLUS,          // +
-    MINUS,         // -
-    STAR,          // *
-    SLASH,         // /
-    ASSIGN,        // =
-    GREATER,       // >
-    LESS,          // <
-    EQUALS,        // ==
+**Why keywords get their own enum values (not just IDENTIFIER):**  
+The Parser must distinguish `set` from a variable named `x`. If both were `IDENTIFIER`, the Parser would need to do `token.getValue().equals("set")` everywhere — fragile string comparison. With `TokenType.SET`, the check is `token.getType() == TokenType.SET` — type-safe and impossible to misspell silently.
 
-    // Structure
-    COLON,         // :
-    NEWLINE,
-    EOF
-}
-```
+#### `Token.java` — Contract
 
-**Design note:** Keywords (`SET`, `SHOW`, `WHEN`, `LOOP`) are distinct token types — not just identifiers with a special string value. This means the Parser never has to do string comparisons like `if (token.getValue().equals("set"))`. Instead, it checks `token.getType() == TokenType.SET`. This is both more performant and more type-safe.
+Fields required (all `private final`, set in constructor, no setters):
+- `TokenType type` — what kind of token this is
+- `String value` — the raw text from the source (e.g., `"set"`, `"42"`, `"result"`)
+- `int line` — which line of source code this came from
 
-#### `Token.java`
+Expose getters for all three fields. Implement `toString()` — you will thank yourself during debugging.
 
-```java
-public final class Token {
-    private final TokenType type;
-    private final String value;
-    private final int line;
+**Why `final` class:** Tokens are pure value objects — immutable data carriers. They should never be subclassed. A `Token` is completely defined by its three fields; there is no meaningful variation to express through inheritance.
 
-    public Token(TokenType type, String value, int line) { ... }
-
-    public TokenType getType()  { return type;  }
-    public String    getValue() { return value; }
-    public int       getLine()  { return line;  }
-
-    @Override
-    public String toString() {
-        return String.format("Token(%s, \"%s\", line=%d)", type, value, line);
-    }
-}
-```
-
-**Why `final` class?** Tokens are pure **value objects** — immutable data carriers. They should never be subclassed. Marking the class `final` makes this contract explicit and allows the JVM to inline method calls. `toString()` is implemented for clean debugging output during development.
-
-**Why store line number?** Even if you don't implement error messages for the base submission, storing the line in the Token costs almost nothing and makes debugging vastly easier. Every error message you might ever want is now possible.
+**Why store line number:** Even if you don't use it for error messages in the base submission, it costs nothing and makes every future error message possible. A token without a line number is a debugging dead end.
 
 ---
 
@@ -263,134 +246,44 @@ public final class Token {
 
 **Package:** `zara.ast`
 
-The expression tree is the structural core of the interpreter. Every value computation — whether a literal, a variable reference, or an operation — is an `Expression` node.
+Every value computation in ZARA — a number literal, a variable lookup, a calculation — is represented as a node object. All node classes implement the `Expression` interface.
 
-#### `Expression.java` — The Core Interface
+#### `Expression.java` — Interface contract
 
 ```java
 public interface Expression {
-    /**
-     * Evaluates this expression in the context of the given environment.
-     * Returns either a Double (numeric result) or a String (text result).
-     * Implementations must never return null.
-     */
     Object evaluate(Environment env);
 }
 ```
 
-**Why `Object` return type and not generics?**
+This single method is the entire contract. Every node in the expression tree must be able to evaluate itself given the current variable store, and return either a `Double` (for numbers) or a `String` (for text).
 
-This deserves a detailed answer. You might consider:
+**Why `Object` return type and not generics:**  
+You might consider `Expression<T>` with `T evaluate(Environment env)`. The problem: at `BinaryOpNode`, you don't know at compile time whether the left side produces a `Double` or a `String` — that depends on what the variable holds at runtime. Generics are a compile-time tool and cannot capture this runtime variability without becoming unwieldy wildcards. `Object` is the honest representation: the value is determined at runtime, not at compile time. The implementation of `BinaryOpNode` handles the distinction.
 
-```java
-// TEMPTING but wrong for this use case:
-public interface Expression<T> {
-    T evaluate(Environment env);
-}
-```
+#### Node classes — Responsibilities
 
-The problem is that at the `BinaryOpNode` level, you don't know at compile time whether `left` produces a `Double` or a `String`. ZARA allows `x + y` (numeric) and also string variables. The type is determined at *runtime* by what the variable holds. Generics are a compile-time tool — they can't capture runtime polymorphism here without getting into wildcards that become harder to work with than the `Object` approach. The `Object` return type, combined with explicit `instanceof` or casting in `BinaryOpNode`, is the correct trade-off here.
+**`NumberNode`**
+- Holds a single `double` value (set in constructor, no setter)
+- `evaluate()` returns that stored value — it does not need to look at `env` at all
 
-#### `NumberNode.java`
+**`StringNode`**
+- Holds a single `String` value (set in constructor, no setter)
+- `evaluate()` returns that stored string — again, `env` is not needed
 
-```java
-public final class NumberNode implements Expression {
-    private final double value;
+**`VariableNode`**
+- Holds a variable name as a `String` (set in constructor, no setter)
+- `evaluate()` asks the `Environment` for the current value of that name — it delegates entirely, containing no logic about what a variable *is*
 
-    public NumberNode(double value) {
-        this.value = value;
-    }
+**`BinaryOpNode`**
+- Holds three things: a left `Expression`, an operator symbol (`String`), and a right `Expression` — all set in constructor, no setters
+- `evaluate()` must: (1) evaluate the left child, (2) evaluate the right child, (3) apply the operator and return the result
+- Arithmetic operators (`+`, `-`, `*`, `/`) return a `Double`
+- Comparison operators (`>`, `<`) return a `Boolean`
+- If either side is not a number when arithmetic is attempted, throw a `RuntimeException` with a clear message
 
-    @Override
-    public Object evaluate(Environment env) {
-        return value;   // Returns Double (autoboxed)
-    }
-}
-```
-
-#### `StringNode.java`
-
-```java
-public final class StringNode implements Expression {
-    private final String value;
-
-    public StringNode(String value) {
-        this.value = value;
-    }
-
-    @Override
-    public Object evaluate(Environment env) {
-        return value;
-    }
-}
-```
-
-#### `VariableNode.java`
-
-```java
-public final class VariableNode implements Expression {
-    private final String name;
-
-    public VariableNode(String name) {
-        this.name = name;
-    }
-
-    @Override
-    public Object evaluate(Environment env) {
-        return env.get(name);   // Delegates entirely to Environment
-    }
-}
-```
-
-**Design note:** `VariableNode` does not contain any logic about what a variable *is*. It simply asks the `Environment`. This is the Dependency Inversion Principle in miniature — `VariableNode` depends on the `Environment` abstraction, not on a concrete storage mechanism.
-
-#### `BinaryOpNode.java`
-
-```java
-public final class BinaryOpNode implements Expression {
-    private final Expression left;
-    private final String     operator;
-    private final Expression right;
-
-    public BinaryOpNode(Expression left, String operator, Expression right) {
-        this.left     = left;
-        this.operator = operator;
-        this.right    = right;
-    }
-
-    @Override
-    public Object evaluate(Environment env) {
-        Object leftVal  = left.evaluate(env);
-        Object rightVal = right.evaluate(env);
-
-        // Both sides must be numeric for arithmetic/comparison
-        double l = toDouble(leftVal);
-        double r = toDouble(rightVal);
-
-        return switch (operator) {
-            case "+" -> l + r;
-            case "-" -> l - r;
-            case "*" -> l * r;
-            case "/" -> l / r;
-            case ">" -> l > r;
-            case "<" -> l < r;
-            case "==" -> l == r;
-            default -> throw new RuntimeException("Unknown operator: " + operator);
-        };
-    }
-
-    private double toDouble(Object val) {
-        if (val instanceof Double d) return d;
-        throw new RuntimeException(
-            "Type error: expected number, got: " + val.getClass().getSimpleName()
-        );
-    }
-}
-```
-
-**Why `switch` expression here?** Java 14+ switch expressions are both more readable and exhaustive — the compiler enforces that every case is handled or a default is present. This is better than a chain of `if/else if` blocks.
-
-**Why does `BinaryOpNode` hold `Expression` references, not concrete types?** This is the **Composite Pattern**. A `BinaryOpNode` can hold *any* `Expression` as its children — including another `BinaryOpNode`. This is exactly what makes `x + y * 2` work: the right child of `+` is itself a `BinaryOpNode` for `*`. The tree composes recursively with zero additional code.
+**Why `BinaryOpNode` holds `Expression` references, not concrete node types:**  
+This is what makes the tree composable. The right child of a `+` node can itself be a `*` node — which is exactly how `x + y * 2` gets the correct structure. The node doesn't care whether its children are literals, variables, or other operations. Any `Expression` works. This is the **Composite Pattern**.
 
 ---
 
@@ -398,40 +291,31 @@ public final class BinaryOpNode implements Expression {
 
 **Package:** `zara.runtime`
 
+The `Environment` is a map from variable names to their current values. One instance is created per program run and shared across every instruction's execution.
+
+#### Required interface
+
 ```java
 public class Environment {
-    private final Map<String, Object> store = new HashMap<>();
+    // Internal: Map<String, Object> — name to value
 
-    public void set(String name, Object value) {
-        store.put(name, value);
-    }
+    public void set(String name, Object value) { }
 
-    public Object get(String name) {
-        if (!store.containsKey(name)) {
-            throw new RuntimeException("Variable not defined: " + name);
-        }
-        return store.get(name);
-    }
-
-    public boolean isDefined(String name) {
-        return store.containsKey(name);
-    }
+    public Object get(String name) { }
 }
 ```
 
-**Why a dedicated class instead of passing a `Map` around directly?**
+`set()` stores or updates a variable. `get()` retrieves the current value — if the variable has never been set, it must throw a `RuntimeException` with a message like `"Variable not defined: x"`. A raw `null` return would silently propagate errors far from their source.
 
-Three reasons:
+**Why a dedicated class instead of passing a `Map` directly:**
 
-1. **Encapsulation.** The `Environment` can enforce rules — like throwing a meaningful `RuntimeException` on undefined variable access — that a raw `Map` cannot. If you passed a `HashMap<String, Object>` directly, every call site would need to do its own null check.
+A `Map<String, Object>` is a general container with no rules. `Environment` is a typed contract with enforced behavior: undefined variable access throws a meaningful error rather than returning `null`. If every class held a raw `Map`, every call site would need its own null check — and some would inevitably forget. Centralizing this logic in `Environment` means it happens in exactly one place.
 
-2. **Future extensibility.** If you add scoping (e.g., variables inside a `loop` that shouldn't leak out), you change `Environment` in one place. If every class holds a direct reference to `HashMap`, you'd need to change every class.
+**Why `Map<String, Object>` and not `Map<String, Double>`:**  
+ZARA variables can hold either numbers or strings (`set name = "Sitare"` is valid). Using `Double` would misrepresent this. `Object` is correct — it acknowledges that the type of a variable's value is not known statically.
 
-3. **Testability.** You can mock or stub `Environment` in unit tests. You cannot mock a `HashMap`.
-
-**Why `Map<String, Object>` and not `Map<String, Double>`?**
-
-ZARA supports both numeric and string variables (`set name = "Sitare"`). Using `Object` as the value type is the honest representation of "this variable can hold a number or a string." Using `Double` would be a lie.
+**Why `Environment` is not a singleton:**  
+A singleton is global mutable state. It would make isolated testing impossible (instructions would mutate shared state between tests), would prevent running two programs concurrently, and would make adding scoped variables very difficult. Passing `env` as a parameter to `execute()` and `evaluate()` makes the dependency explicit and testable.
 
 ---
 
@@ -439,115 +323,46 @@ ZARA supports both numeric and string variables (`set name = "Sitare"`). Using `
 
 **Package:** `zara.instruction`
 
-#### `Instruction.java` — Interface
+An instruction is one complete, executable action. All instruction classes implement the `Instruction` interface.
+
+#### `Instruction.java` — Interface contract
 
 ```java
 public interface Instruction {
-    /**
-     * Executes this instruction, reading and mutating state via env.
-     * Side effects (printing, variable assignment) happen here.
-     */
     void execute(Environment env);
 }
 ```
 
-**Why `void`?** Instructions don't produce values — they produce *effects*. `AssignInstruction` changes the `Environment`. `PrintInstruction` writes to stdout. `IfInstruction` may or may not execute its body. None of these need to return anything. The `void` return type is the correct contract.
+**Why `void`:** Instructions produce *effects*, not values. Assignment changes the `Environment`. Print writes to stdout. A conditional may or may not execute its body. None of these need to return anything — `void` is the accurate contract.
 
-#### `AssignInstruction.java`
+#### Instruction classes — Responsibilities
 
-```java
-public final class AssignInstruction implements Instruction {
-    private final String     variableName;
-    private final Expression expression;
+**`AssignInstruction`**  
+Handles: `set x = 10 + 5`  
+Holds: the variable name (`String`) and the expression to evaluate (`Expression`)  
+Behavior: evaluate the expression, store the result in `env` under the variable name
 
-    public AssignInstruction(String variableName, Expression expression) {
-        this.variableName = variableName;
-        this.expression   = expression;
-    }
+**`PrintInstruction`**  
+Handles: `show result` or `show "hello"`  
+Holds: the expression to print (`Expression`)  
+Behavior: evaluate the expression, print the result to standard output  
+Note: a number stored as `16.0` should print as `16`, not `16.0` — ZARA users expect whole numbers to display as integers. This formatting concern belongs here and only here.
 
-    @Override
-    public void execute(Environment env) {
-        Object value = expression.evaluate(env);
-        env.set(variableName, value);
-    }
-}
-```
+**`IfInstruction`**  
+Handles: `when score > 50:` followed by an indented block  
+Holds: the condition (`Expression`) and the body (`List<Instruction>`)  
+Behavior: evaluate the condition; if it is `true`, execute every instruction in the body in order; otherwise do nothing
 
-#### `PrintInstruction.java`
+**`RepeatInstruction`**  
+Handles: `loop 4:` followed by an indented block  
+Holds: the count (`int`) and the body (`List<Instruction>`)  
+Behavior: execute the full body `count` times in order
 
-```java
-public final class PrintInstruction implements Instruction {
-    private final Expression expression;
+**Design note on `List<Instruction>` body fields:**  
+Both `IfInstruction` and `RepeatInstruction` hold a list of child instructions. This list should be treated as immutable after construction — the instruction owns it from the moment it is created. Consider what happens if the list you receive in the constructor is still being modified by the Parser elsewhere.
 
-    public PrintInstruction(Expression expression) {
-        this.expression = expression;
-    }
-
-    @Override
-    public void execute(Environment env) {
-        Object value = expression.evaluate(env);
-        // Format doubles cleanly: 16.0 → "16", not "16.0"
-        if (value instanceof Double d && d == Math.floor(d) && !Double.isInfinite(d)) {
-            System.out.println(d.intValue());
-        } else {
-            System.out.println(value);
-        }
-    }
-}
-```
-
-**Design note on number formatting:** ZARA programs like `show result` where `result = 16.0` should print `16`, not `16.0`. Integers in ZARA are conceptually whole numbers. This formatting concern belongs in `PrintInstruction`, not in `Environment` or `BinaryOpNode`. This is high cohesion — the only class that cares how a value is *displayed* is the one responsible for displaying it.
-
-#### `IfInstruction.java`
-
-```java
-public final class IfInstruction implements Instruction {
-    private final Expression        condition;
-    private final List<Instruction> body;
-
-    public IfInstruction(Expression condition, List<Instruction> body) {
-        this.condition = condition;
-        this.body      = List.copyOf(body);   // Defensive copy — immutable after construction
-    }
-
-    @Override
-    public void execute(Environment env) {
-        Object result = condition.evaluate(env);
-        if (result instanceof Boolean b && b) {
-            for (Instruction instruction : body) {
-                instruction.execute(env);
-            }
-        }
-    }
-}
-```
-
-**Why `List.copyOf()`?** The `List<Instruction>` passed to the constructor might be the same mutable list the Parser is still building. If the Parser later modifies it, `IfInstruction` would silently hold corrupted state. Defensive copying prevents this class of bug entirely.
-
-**Why `instanceof Boolean b && b`?** This uses Java's pattern matching for `instanceof` (Java 16+). It simultaneously checks that the result is a `Boolean` *and* unpacks it into `b` in one step. More concise and more correct than `if (result.equals(Boolean.TRUE))`.
-
-#### `RepeatInstruction.java`
-
-```java
-public final class RepeatInstruction implements Instruction {
-    private final int             count;
-    private final List<Instruction> body;
-
-    public RepeatInstruction(int count, List<Instruction> body) {
-        this.count = count;
-        this.body  = List.copyOf(body);
-    }
-
-    @Override
-    public void execute(Environment env) {
-        for (int i = 0; i < count; i++) {
-            for (Instruction instruction : body) {
-                instruction.execute(env);
-            }
-        }
-    }
-}
-```
+**Why the body is `List<Instruction>` and not something else:**  
+This means an `IfInstruction` body can contain another `IfInstruction` or a `RepeatInstruction`. Nesting works automatically — no special case required. The recursive structure of `List<Instruction>` handles arbitrary depth.
 
 ---
 
@@ -555,87 +370,37 @@ public final class RepeatInstruction implements Instruction {
 
 **Package:** `zara.lexer`
 
-The Tokenizer has one job: transform a raw `String` into a `List<Token>`. It must handle:
+The Tokenizer has one job: read the raw source `String` character by character and produce a `List<Token>`.
 
-- Whitespace (skip spaces and tabs, but not newlines)
-- Newlines (emit a `NEWLINE` token — important for block detection)
-- Numbers (integers and decimals)
-- Strings (quoted text including spaces)
-- Identifiers (which may be keywords)
-- Operators (single or double character: `=`, `==`, `>`, `<`, `+`, `-`, `*`, `/`)
-- End of file (emit a single `EOF` token)
+#### State it needs
 
-**Conceptual structure:**
+- The source string (set once in constructor, never changed)
+- A current position index (advances as characters are consumed)
+- A current line counter (incremented on every newline character, used to populate `Token.line`)
 
-```java
-public class Tokenizer {
-    private final String source;
-    private int pos;     // current character index
-    private int line;    // current line number (starts at 1)
+#### What `tokenize()` must handle
 
-    public Tokenizer(String source) {
-        this.source = source;
-        this.pos    = 0;
-        this.line   = 1;
-    }
+| Input pattern | Output |
+|---|---|
+| Space or tab | Skip — do not emit a token |
+| `\n` | Emit `NEWLINE` token, increment line counter |
+| `"` | Read until the closing `"`, emit `STRING` token (value should be the content without quotes) |
+| Digit | Read all consecutive digit/dot characters, emit `NUMBER` token |
+| Letter or `_` | Read all consecutive letter/digit/underscore characters; check if it matches a keyword; emit the appropriate `TokenType` |
+| `=` | Peek at next character — if `=`, emit `EQUALS` (`==`); otherwise emit `ASSIGN` (`=`) |
+| `+`, `-`, `*`, `/`, `>`, `<`, `:` | Emit corresponding operator token |
+| End of input | Emit one `EOF` token |
 
-    public List<Token> tokenize() {
-        List<Token> tokens = new ArrayList<>();
-        while (pos < source.length()) {
-            skipWhitespace();       // skip spaces/tabs only
-            if (pos >= source.length()) break;
+#### Key design decisions
 
-            char c = source.charAt(pos);
+**Keyword detection belongs in the identifier reader, not as a special first check.**  
+Read the full word first, then check whether it is a keyword. Trying to detect keywords character by character leads to code that cannot distinguish `setter` from `set`.
 
-            if (c == '\n') {
-                tokens.add(new Token(TokenType.NEWLINE, "\n", line));
-                line++;
-                pos++;
-            } else if (c == '"') {
-                tokens.add(readString());
-            } else if (Character.isDigit(c)) {
-                tokens.add(readNumber());
-            } else if (Character.isLetter(c) || c == '_') {
-                tokens.add(readIdentifierOrKeyword());
-            } else {
-                tokens.add(readOperator());
-            }
-        }
-        tokens.add(new Token(TokenType.EOF, "", line));
-        return tokens;
-    }
+**`pos` is the only mutable state that drives progress.**  
+If the source is immutable and `pos` monotonically increases, the Tokenizer's behavior is entirely determined by those two things — easy to trace, easy to test. There should be no other hidden state.
 
-    // Private helper methods: readString(), readNumber(),
-    // readIdentifierOrKeyword(), readOperator(), skipWhitespace(), peek(), advance()
-}
-```
-
-**Key design decisions:**
-
-- **`pos` is the only mutable state.** The source string is immutable. This means the Tokenizer's logic is purely a function of `source` and `pos` — no hidden state, easy to reason about and test.
-- **`line` tracking is cheap and invaluable.** Increment `line` on every `\n` character. This is O(1) work per character.
-- **Keyword detection happens in `readIdentifierOrKeyword()`.** Read the full identifier first, *then* check if it matches a keyword. Do not try to detect keywords character by character.
-
-```java
-private Token readIdentifierOrKeyword() {
-    int start = pos;
-    while (pos < source.length() &&
-           (Character.isLetterOrDigit(source.charAt(pos)) || source.charAt(pos) == '_')) {
-        pos++;
-    }
-    String word = source.substring(start, pos);
-    TokenType type = switch (word) {
-        case "set"  -> TokenType.SET;
-        case "show" -> TokenType.SHOW;
-        case "when" -> TokenType.WHEN;
-        case "loop" -> TokenType.LOOP;
-        default     -> TokenType.IDENTIFIER;
-    };
-    return new Token(type, word, line);
-}
-```
-
-**Why a `switch` expression for keyword mapping?** The JVM compiles `switch` on strings using a hash map internally — O(1) lookup. It is also more readable and maintainable than a chain of `if/else if` comparisons.
+**`line` is cheap to track and invaluable to have.**  
+Every `\n` character increments it. The cost is one integer increment per newline. The benefit is that every token carries its line number, making error messages possible anywhere downstream.
 
 ---
 
@@ -643,147 +408,127 @@ private Token readIdentifierOrKeyword() {
 
 **Package:** `zara.parser`
 
-The Parser is the most algorithmically complex component. It reads tokens sequentially and builds the instruction tree using **recursive descent parsing**.
+The Parser reads the `List<Token>` from the Tokenizer and builds a `List<Instruction>`. It is the most algorithmically complex component.
 
-#### The Operator Precedence Problem
+#### State it needs
 
-This is the most important conceptual challenge in the Parser. Consider `x + y * 2`. If we parse left-to-right naively, we get `(x + y) * 2 = 26`. The correct answer is `x + (y * 2) = 16`. The Parser must build a tree that reflects `*` having higher precedence than `+`.
+- The full token list (set once in constructor)
+- A current index into that list (advances as tokens are consumed)
+- Two helper methods used everywhere:
+  - `current()` — returns the token at the current index without advancing
+  - `consume()` — returns the token at the current index and advances the index
+  - `expect(TokenType)` — asserts the current token is the expected type, then consumes it; throws with a clear message if not
 
-**The solution: a call chain where lower-precedence rules call higher-precedence rules.**
+#### The `parse()` flow
 
-```
-parseExpression()   →  handles + and - (lowest precedence)
-    calls
-parseTerm()         →  handles * and / (medium precedence)
-    calls
-parsePrimary()      →  handles a single value (highest precedence / base case)
-```
-
-This chain means `*` and `/` are always consumed *before* `+` and `-` are processed, naturally producing the correct tree shape.
-
-```java
-// Conceptual sketch — not complete implementation
-
-private Expression parseExpression() {
-    Expression left = parseTerm();                  // Consume * and / first
-
-    while (current().getType() == TokenType.PLUS ||
-           current().getType() == TokenType.MINUS  ||
-           current().getType() == TokenType.GREATER ||
-           current().getType() == TokenType.LESS) {
-        String op = consume().getValue();
-        Expression right = parseTerm();
-        left = new BinaryOpNode(left, op, right);  // Left-associative: (a+b)+c
-    }
-    return left;
-}
-
-private Expression parseTerm() {
-    Expression left = parsePrimary();
-
-    while (current().getType() == TokenType.STAR ||
-           current().getType() == TokenType.SLASH) {
-        String op = consume().getValue();
-        Expression right = parsePrimary();
-        left = new BinaryOpNode(left, op, right);
-    }
-    return left;
-}
-
-private Expression parsePrimary() {
-    Token t = consume();
-    return switch (t.getType()) {
-        case NUMBER     -> new NumberNode(Double.parseDouble(t.getValue()));
-        case STRING     -> new StringNode(t.getValue());
-        case IDENTIFIER -> new VariableNode(t.getValue());
-        default         -> throw new RuntimeException(
-                              "Unexpected token in expression: " + t + " on line " + t.getLine());
-    };
-}
-```
-
-#### Parsing a ZARA Block (Indented Body)
-
-ZARA uses indented blocks after `when` and `loop`. The Parser needs to know when the block starts and ends. The simplest approach: after consuming the colon `(:)`, read instructions until you hit a line that is not indented (or `EOF`).
+`parse()` is a loop: while the current token is not `EOF`, look at the current token type and dispatch to the appropriate handler:
 
 ```
-when z > 30:          ← WHEN token, condition, COLON
-    show "big number" ← body (indented line)
-show "done"           ← NOT indented → block ends
+if current token is SET  → parseAssignment()   → produces AssignInstruction
+if current token is SHOW → parsePrint()         → produces PrintInstruction
+if current token is WHEN → parseConditional()   → produces IfInstruction
+if current token is LOOP → parseLoop()          → produces RepeatInstruction
+if current token is NEWLINE → skip it, advance
+otherwise → throw ParseException (unexpected token)
 ```
 
-The Parser can track block depth by checking whether the current line starts with whitespace (or by counting NEWLINE tokens and peeking at what follows).
+Each handler consumes exactly the tokens it needs and returns one fully constructed instruction. `parse()` collects all returned instructions into the list it eventually returns.
 
-#### Parser State
+#### The operator precedence problem and its solution
 
-```java
-public class Parser {
-    private final List<Token> tokens;
-    private int index;            // Points to current token
+Consider `x + y * 2`. Parsed naively left-to-right: `(x + y) * 2 = 26`. Correct result: `x + (y * 2) = 16`. The Parser must produce a tree where `*` sits deeper than `+`.
 
-    private Token current() { return tokens.get(index); }
-    private Token consume()  { return tokens.get(index++); }
-    private Token expect(TokenType type) {
-        if (current().getType() != type) {
-            throw new RuntimeException(
-                "Expected " + type + " but got " + current() + " on line " + current().getLine()
-            );
-        }
-        return consume();
-    }
-}
+**The solution is a three-level call chain:**
+
+```
+parseExpression()   handles: + − > <         (lowest precedence)
+    └── calls parseTerm() to get each operand
+
+parseTerm()         handles: * /              (higher precedence)
+    └── calls parsePrimary() to get each operand
+
+parsePrimary()      handles: a single value   (highest precedence / base case)
+    returns: NumberNode, StringNode, or VariableNode
 ```
 
-**Why `expect()` instead of just `consume()`?** `expect()` documents the *contract* — "this token must be present here." If it is not, you get a clear error message with the expected type, actual type, and line number. Failing silently by just advancing past a wrong token produces a bug that is extremely hard to trace back to its source.
+Why this works: `parseExpression` calls `parseTerm` to get its left side before it looks for a `+` or `-`. `parseTerm` eagerly consumes any `*` or `/` before returning. So by the time `parseExpression` sees its operator, the right side has already been bound tightly. The tree shape encodes precedence — no special flags or lookahead needed.
+
+Walk through `x + y * 2` manually using this chain:
+1. `parseExpression` calls `parseTerm` → which calls `parsePrimary` → returns `VariableNode("x")`
+2. `parseTerm` sees no `*` or `/`, returns `VariableNode("x")` to `parseExpression`
+3. `parseExpression` sees `+`, consumes it, calls `parseTerm` again for the right side
+4. `parseTerm` calls `parsePrimary` → returns `VariableNode("y")`
+5. `parseTerm` sees `*`, consumes it, calls `parsePrimary` → returns `NumberNode(2.0)`
+6. `parseTerm` wraps: `BinaryOpNode("*", VariableNode("y"), NumberNode(2.0))` — returns this
+7. `parseExpression` wraps: `BinaryOpNode("+", VariableNode("x"), BinaryOpNode("*", ...))`
+
+Result: the `*` node sits deeper. Correct tree. Correct precedence. No special logic.
+
+#### Parsing a `when` block (IfInstruction)
+
+A `when` statement in ZARA looks like:
+```
+when score > 50:
+    show "Pass"
+show "done"
+```
+
+The parse sequence:
+1. `expect(WHEN)` — consume the `when` keyword
+2. Call `parseExpression()` — this returns the condition (`score > 50`)
+3. `expect(COLON)` — consume the `:`
+4. `expect(NEWLINE)` — consume the line ending
+5. Parse the indented body — keep calling the top-level statement parser **while the current line is indented**; collect results into `List<Instruction>`
+6. Construct and return `IfInstruction(condition, body)`
+
+**How to detect indentation:** The Tokenizer emits `NEWLINE` tokens. After a `NEWLINE`, if the next token is also a `NEWLINE` or is a top-level keyword like `SET`/`SHOW`/`WHEN`/`LOOP` at column 0, the block has ended. The simplest practical approach: track whether the source line the current token came from starts with whitespace. If yes, the token is part of an indented block. Your Tokenizer already stores line numbers in every token — you can check the raw source to determine indentation for that line.
+
+#### Parsing a `loop` block (RepeatInstruction)
+
+A `loop` statement:
+```
+loop 4:
+    show i
+    set i = i + 1
+```
+
+The parse sequence:
+1. `expect(LOOP)` — consume `loop`
+2. `expect(NUMBER)` — consume the count; parse its value as an `int`
+3. `expect(COLON)` — consume `:`
+4. `expect(NEWLINE)` — consume the line ending
+5. Parse the indented body using the same block-detection approach as `when`
+6. Construct and return `RepeatInstruction(count, body)`
+
+Note: `loop` takes a **literal number only** — not a variable or expression. The count is determined at parse time, not evaluation time. This is why `RepeatInstruction` stores an `int`, not an `Expression`.
 
 ---
 
-### 5.7 Evaluator / Interpreter Entry Point
+### 5.7 Interpreter Entry Point
 
 **Package:** `zara` (root)
 
 ```java
 public class Interpreter {
     public void run(String sourceCode) {
-        // Stage 1: Lex
-        Tokenizer tokenizer  = new Tokenizer(sourceCode);
-        List<Token> tokens   = tokenizer.tokenize();
-
-        // Stage 2: Parse
-        Parser parser              = new Parser(tokens);
-        List<Instruction> program  = parser.parse();
-
-        // Stage 3: Execute
-        Environment env = new Environment();
-        for (Instruction instruction : program) {
-            instruction.execute(env);
-        }
+        // Step 1: tokenize sourceCode → List<Token>
+        // Step 2: parse token list → List<Instruction>
+        // Step 3: create Environment, execute each instruction
     }
 }
 ```
 
-**Why is this class so small?** Because it is a pipeline orchestrator, not a logic container. The moment `Interpreter` starts containing parsing or evaluation logic, you have violated separation of concerns. If `Interpreter` is ever more than 20 lines, reconsider what logic has leaked into it.
+This class is a pipeline orchestrator. Its only job is to connect the three stages. If this class ever contains parsing logic, evaluation logic, or arithmetic — something has gone wrong with the separation of concerns.
 
-```java
-public class Main {
-    public static void main(String[] args) throws IOException {
-        if (args.length < 1) {
-            System.err.println("Usage: java -cp . zara.Main <file.zara>");
-            System.exit(1);
-        }
-        String sourceCode = Files.readString(Path.of(args[0]));
-        new Interpreter().run(sourceCode);
-    }
-}
-```
+`Main.java` reads the source file from the command-line argument, reads its contents into a `String`, and calls `new Interpreter().run(sourceCode)`.
 
 ---
 
 ## 6. Design Principles Applied
 
-### The Composite Pattern (Expression Tree)
+### Composite Pattern — Expression Tree
 
-`BinaryOpNode` holds two `Expression` references. Those can be `NumberNode`, `VariableNode`, or *another* `BinaryOpNode`. The tree composes arbitrarily deep with no additional code. This is the Composite Pattern.
+`BinaryOpNode` holds two `Expression` children. Those children can themselves be `BinaryOpNode` instances. The tree composes arbitrarily deep. No special code handles nesting — it emerges from the structure.
 
 ```
 x + y * (z - 2)
@@ -797,118 +542,121 @@ BinaryOpNode(+)
         └── NumberNode(2)
 ```
 
-### The Command Pattern (Instructions)
+### Command Pattern — Instructions
 
-`AssignInstruction`, `PrintInstruction`, `IfInstruction`, `RepeatInstruction` all implement `Instruction`. The executor loop does not need to know what kind of instruction it holds — it calls `.execute(env)` on each one. This is the Command Pattern: encapsulating a behavior as an object.
+Every instruction is an object that knows how to execute itself. The executor loop in `Interpreter.run()` does not know or care whether it is executing an assignment, a print, a conditional, or a loop. It calls `.execute(env)` and the object handles the rest. Adding a new instruction type requires no changes to the executor loop.
 
-### The Visitor Pattern (Implicit)
+### Pipeline Pattern — Three Isolated Stages
 
-`Expression.evaluate(Environment env)` passing the `env` down through the tree is an implicit form of visitor traversal. The tree is walked, and at each node, the `env` is passed in to provide context. The tree nodes do not hold mutable state — they receive it each time they are evaluated. This makes expressions **referentially transparent**: the same `NumberNode(42)` always returns `42` regardless of when or how many times it is called.
+`Tokenizer → Parser → Executor` is a strict pipeline. No stage holds a reference to any other stage. Each consumes a well-typed input and produces a well-typed output. This means each stage can be tested in complete isolation.
 
-### The Pipeline / Chain of Responsibility Pattern
+### Dependency Inversion — `Expression` and `Instruction` interfaces
 
-`Tokenizer → Parser → Executor` is a strict pipeline. No stage knows about the stages before or after it. Each consumes a well-typed input and produces a well-typed output.
+High-level code (`Interpreter`, the executor loop) depends on the `Instruction` interface, not on `AssignInstruction` or `PrintInstruction`. This is why the executor loop is just a `for` loop calling `.execute()` — it is decoupled from every concrete instruction class.
 
 ---
 
 ## 7. Key Design Decisions & Why
 
-### Why all Expression nodes are `final`
+### Why all Expression node classes should be `final`
 
-Node classes represent pure data. They should not be subclassed — their behavior is fully defined. Marking them `final` is a statement: "there is no other kind of `NumberNode`." It also prevents the subtle bug where someone subclasses `NumberNode` and overrides `evaluate()` in an unexpected way.
+Node classes represent fixed, well-defined values. `NumberNode` is a number. There is no meaningful subtype of "a number literal." Marking them `final` closes the class against accidental subclassing and makes their behavior completely predictable.
 
-### Why `List<Instruction>` not a single root `Instruction`
+### Why `List<Instruction>` is the program, not a root node
 
-A ZARA program is a flat sequence of instructions, not a single tree root. Wrapping the list in a `ProgramNode` class would be unnecessary indirection. The `List<Instruction>` *is* the program.
+A ZARA program is a flat sequence of statements. There is no concept of a root or container instruction. Wrapping the list in a `ProgramNode` class would add an abstraction layer with no purpose. The list is the program.
 
 ### Why `HashMap` inside `Environment`
 
-`HashMap` gives O(1) average-case lookup and insert for variable access. Variable lookups happen on every expression evaluation — performance here matters. A `LinkedHashMap` would also work if insertion-order iteration is ever needed.
+Variable lookup and assignment happen on every expression evaluation. O(1) average-case for both operations is the right choice. There is no ordering requirement that would justify `LinkedHashMap` or `TreeMap`.
 
-### Why not use inheritance between `Expression` nodes
+### Why interfaces over abstract base classes for `Expression` and `Instruction`
 
-`NumberNode`, `StringNode`, `VariableNode`, `BinaryOpNode` share nothing implementation-wise. An abstract base class `ExpressionNode` with no real behavior is just noise. The `Expression` interface captures the *contract* without forcing fake inheritance. Prefer interfaces over abstract classes when there is no shared behavior to inherit.
+`NumberNode`, `StringNode`, `VariableNode`, `BinaryOpNode` share no implementation — only a contract. An abstract base class with no shared behavior is noise. The interface captures exactly what is shared (the `evaluate` method signature) without inventing fake shared state.
 
-### Why `Environment` is not a singleton
+### Why `expect()` in the Parser
 
-Singletons are global mutable state. If `Environment` were a singleton, you could not run two ZARA programs concurrently, you could not test instructions in isolation (they'd mutate shared state), and you'd never be able to add scoping. Passing `env` explicitly is the correct approach — it makes dependencies visible and testable.
+`consume()` blindly advances regardless of token type. `expect()` asserts the type first. When a grammar rule says "a `when` block must be followed by a condition, then a colon, then a newline" — using `expect(COLON)` documents that contract and gives a clear error if violated. Using `consume()` silently accepts whatever happens to be next, producing bugs far from their source.
 
 ---
 
 ## 8. Error Handling Strategy
 
-Error handling lives at two levels:
+### Two categories of error
 
-**Parse errors** — the source code is structurally invalid (missing colon after `when`, unknown token). These should throw a custom `ParseException` with the line number.
+**Parse errors** — source code is structurally invalid (e.g., missing colon after `when`, unrecognized character). Should carry the line number from the relevant token.
 
-**Runtime errors** — an undefined variable is accessed, or an arithmetic operation is given a string. These throw a `RuntimeException` with a descriptive message.
+**Runtime errors** — valid syntax but illegal at execution time (e.g., accessing an undefined variable, applying arithmetic to a string).
 
-```java
-// Custom exception for parse-time errors
-public class ParseException extends RuntimeException {
-    private final int line;
+### Where errors originate
 
-    public ParseException(String message, int line) {
-        super("Line " + line + ": " + message);
-        this.line = line;
-    }
-}
-```
+- `Environment.get()` — undefined variable access
+- `BinaryOpNode.evaluate()` — type mismatch (e.g., string where number expected)
+- `Parser.expect()` — token type mismatch during parsing
+- `Parser.parsePrimary()` — unexpected token where a value was expected
 
-**Where errors are thrown:**
-- `Environment.get()` — undefined variable
-- `BinaryOpNode.evaluate()` — type mismatch
-- `Parser.expect()` — unexpected token
-- `parsePrimary()` — unexpected token in expression
+### Where errors are handled
 
-**Where errors are caught:**
-- `Interpreter.run()` — top-level catch, prints the error and exits cleanly
+One place: `Interpreter.run()`. A top-level try/catch there prints the error message and exits cleanly. This means no other class needs catch blocks — errors propagate up naturally. Scattering catch blocks throughout the codebase makes it impossible to reason about error flow.
 
-This means error-handling code is in exactly one place, not scattered across every method.
+### Custom exception for parse errors
+
+Define a `ParseException extends RuntimeException` that accepts a message and a line number. The message it produces should be immediately actionable: `"Line 4: expected ':' after condition"` is useful. `"NullPointerException at Parser.java:83"` is not.
 
 ---
 
 ## 9. Extension Points
 
-The design is open for extension without modification:
+The design is intentionally open for extension without modification of existing classes:
 
-| Feature | How to add it |
-|---------|---------------|
-| `else` block | Add `elseBody: List<Instruction>` field to `IfInstruction`. Parser reads it if `else` token follows the `when` block. No other changes. |
-| `while` loop | New class `WhileInstruction implements Instruction`. New `TokenType.WHILE`. Parser handles it. Zero changes to existing classes. |
-| `==` equality | Add `TokenType.EQUALS`, handle `"=="` in `BinaryOpNode.evaluate()`. One case in a switch. |
-| String length | New `LengthNode implements Expression` or handle a `length(x)` syntax in `parsePrimary()`. |
-| Nested blocks | Already works. `IfInstruction.body` is `List<Instruction>` — it can contain another `IfInstruction` or `RepeatInstruction`. The recursive structure handles it for free. |
+| Feature | Extension approach |
+|---------|-------------------|
+| `else` block | Add an optional `elseBody` field to `IfInstruction`. Parser reads it if the token after the `when` block is an `else` keyword. No changes to any other class. |
+| `while` loop | New `WhileInstruction implements Instruction`. New `TokenType.WHILE`. Parser dispatches to a new `parseWhile()` method. Zero changes to existing instruction classes. |
+| `==` equality | Add `TokenType.EQUALS`. Handle the `"=="` case in `BinaryOpNode`. One additional case in one switch. |
+| String length | New `LengthNode implements Expression`, or add a `length(x)` syntax handled in `parsePrimary()`. |
+| Nested blocks | Already works. `IfInstruction.body` is `List<Instruction>` — it can hold any instruction including another `IfInstruction` or `RepeatInstruction`. The recursive structure handles arbitrary nesting. |
+| Helpful error messages | Already designed for — every `Token` carries a line number, and `ParseException` carries line information. Improving messages means improving the strings passed to exceptions, not restructuring the code. |
 
 ---
 
 ## 10. What NOT To Do
 
-These are anti-patterns that are tempting in early designs but create problems that compound.
-
 **❌ Don't put evaluation logic inside the Parser.**  
-The Parser builds the tree. The tree evaluates itself. If your Parser is calling `env.set()` or doing arithmetic, the stages are not separated.
+The Parser builds the tree. The tree evaluates itself. If your Parser calls `env.set()` or does arithmetic, the stages are not separated and the design has failed.
 
-**❌ Don't use `String` comparisons for token type checks.**  
-`if (token.getValue().equals("set"))` is fragile. Use `token.getType() == TokenType.SET`. You defined the enum for this reason.
+**❌ Don't use string comparisons to identify tokens.**  
+`if (token.getValue().equals("set"))` breaks the purpose of the `TokenType` enum. Use `token.getType() == TokenType.SET`.
 
-**❌ Don't store `Environment` as a class-level field in expression nodes.**  
-`Expression.evaluate(Environment env)` receives the environment as a parameter. If you store it in the node at parse time, you have baked the environment into the syntax tree — these are different things (structure vs. state) and must not be conflated.
+**❌ Don't store `Environment` inside expression nodes.**  
+`Expression.evaluate(env)` receives the environment as a parameter — it is not the node's possession. Storing `env` in a node at parse time conflates syntax (tree structure) with runtime state. These are different things.
 
 **❌ Don't make `Token` mutable.**  
-Tokens are created once and read many times. A mutable token is a data integrity hazard. All fields must be `final`, set in the constructor.
+A token is created once and read many times. Mutability here has no purpose and opens the door to bugs where a downstream component changes a token that another component is still reading.
 
-**❌ Don't implement a `switch` on `instanceof` in the executor loop.**  
+**❌ Don't check `instanceof` in the executor loop.**  
 ```java
-// WRONG: This is what interfaces are for
-if (instruction instanceof AssignInstruction a) { ... }
-else if (instruction instanceof PrintInstruction p) { ... }
-```  
-Call `instruction.execute(env)` and let polymorphism do its job. That is the entire point of the `Instruction` interface.
+// This defeats the purpose of the Instruction interface:
+if (instr instanceof AssignInstruction) { ... }
+else if (instr instanceof PrintInstruction) { ... }
+```
+Call `instr.execute(env)` and let polymorphism route the call. The interface exists precisely so the executor loop does not need to know what kind of instruction it holds.
 
-**❌ Don't build and test the whole interpreter at once.**  
-Build in this order: `Token` → `Tokenizer` → leaf `Expression` nodes → `Environment` → `BinaryOpNode` → `AssignInstruction` + `PrintInstruction` → `Parser` for simple expressions → `IfInstruction` → `RepeatInstruction`. Test each stage before moving to the next.
+**❌ Don't build the whole system at once.**  
+Recommended build order:
+1. `Token` + `TokenType`
+2. `Tokenizer` — test it in isolation on simple inputs
+3. `NumberNode`, `StringNode`, `VariableNode` — test `evaluate()` directly
+4. `Environment` — test `set`/`get` including undefined variable error
+5. `BinaryOpNode` — test arithmetic and comparison
+6. `AssignInstruction` + `PrintInstruction` — test with a real `Environment`
+7. `Parser` — start with just assignment and print, no blocks yet
+8. `IfInstruction` + block parsing in Parser
+9. `RepeatInstruction` + block parsing in Parser
+10. `Interpreter` + `Main` — wire together, run the sample programs
+
+Each step should be working and tested before the next begins.
 
 ---
 
-*This document describes the engineering design of the ZARA interpreter. It defines structure, rationale, and contracts — not implementation. The implementation follows from this design.*
+*This document defines the architecture, contracts, and reasoning behind the ZARA interpreter design. Method bodies are the implementation work of the team. The decisions recorded here constrain and guide that work — they do not replace it.*
