@@ -24,6 +24,22 @@ public class Parser {
         }
         return instructions;
     }
+    private Instruction parseInstruction(){
+        if(match(TokenType.SET)) return assignments();
+        if(match(TokenType.SHOW)) return print();
+        if (match(TokenType.WHEN)) return ifStatement();
+        if (match(TokenType.LOOP)) return loopStatement();
+
+        throw new RuntimeException("Unexpected token at line " + peek().getLine() + ": " + peek().getValue());
+    }
+
+
+    private Instruction assignment() {
+        Token name = consume(TokenType.IDENTIFIER, "Expect variable name after 'set'.");
+        consume(TokenType.ASSIGN, "Expect '=' after variable name.");
+        Expression value = parseComparison();
+        return new AssignInstruction(name.getValue(), value);
+    }
 
 
 }
