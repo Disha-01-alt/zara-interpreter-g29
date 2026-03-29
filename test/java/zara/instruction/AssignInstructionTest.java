@@ -3,6 +3,7 @@ package zara.instruction;
 import org.junit.jupiter.api.Test;
 import zara.ast.Expression;
 import zara.runtime.Environment;
+import zara.instruction.AssignInstruction;
 
 import static org.junit.jupiter.api.Assertions.*;
 
