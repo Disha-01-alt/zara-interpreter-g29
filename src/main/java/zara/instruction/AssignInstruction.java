@@ -3,7 +3,7 @@ package zara.instruction;
 import zara.ast.Expression;
 import zara.runtime.Environment;
 
-public class AssignInstruction implements Instruction {
+public class AssignInstruction implements zara.instruction.Instruction {
     private final String variableName;
     private final Expression expression;
 
@@ -14,6 +14,7 @@ public class AssignInstruction implements Instruction {
 
     @Override
     public void execute(Environment env)
+
     {
         env.set(variableName, expression.evaluate(env));
     }
