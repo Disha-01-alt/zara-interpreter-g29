@@ -99,7 +99,7 @@ public class Parser {
     }
 
 
-    /**
+    /*
      * Parses:
      *   when <expression> :
      *       <indented block>
@@ -117,6 +117,39 @@ public class Parser {
 
         return new IfInstruction(condition, body);
     }
+
+
+    /*
+     * Parses:
+     *   loop <NUMBER> :
+     *       <indented block>
+     * The loop count is a literal integer — not an expression.
+     * Produces: RepeatInstruction
+     */
+
+    private Instruction parseLoop() {
+        Token loopToken = expect(TokenType.LOOP);
+
+        Token countToken = expect(TokenType.NUMBER);
+        int count;
+        try {
+            count = (int) Double.parseDouble(countToken.getValue());
+        } catch (NumberFormatException e) {
+            throw new ParseException(
+                    "Line " + countToken.getLine() + ": loop count must be an integer, got '"
+                            + countToken.getValue() + "'.",
+                    countToken.getLine()
+            );
+        }
+
+        expect(TokenType.COLON);
+        expect(TokenType.NEWLINE);
+
+        List<Instruction> body = parseBlock(loopToken.getLine());
+
+        return new RepeatInstruction(count, body);
+    }
+
 
 
 
