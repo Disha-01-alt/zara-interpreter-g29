@@ -99,5 +99,25 @@ public class Parser {
     }
 
 
+    /**
+     * Parses:
+     *   when <expression> :
+     *       <indented block>
+     * Produces: IfInstruction
+     */
+    private Instruction parseConditional() {
+        Token whenToken = expect(TokenType.WHEN);
+
+        Expression condition = parseExpression();
+
+        expect(TokenType.COLON);
+        expect(TokenType.NEWLINE);
+
+        List<Instruction> body = parseBlock(whenToken.getLine());
+
+        return new IfInstruction(condition, body);
+    }
+
+
 
 }
