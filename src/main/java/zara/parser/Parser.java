@@ -40,7 +40,6 @@ public class Parser {
     }
 
     // Statement dispatcher
-
     private Instruction parseStatement() {
         Token tok = current();
 
@@ -84,7 +83,7 @@ public class Parser {
     }
 
 
-    /**
+    /*
      * Parses:  show <expression> <NEWLINE>
      * Produces: PrintInstruction
      */
@@ -150,8 +149,8 @@ public class Parser {
         return new RepeatInstruction(count, body);
     }
 
-    // Block parser (indented body for when / loop)
 
+    // Block parser (indented body for when / loop)
     private List<Instruction> parseBlock(int headerLine) {
         List<Instruction> body = new ArrayList<>();
 
@@ -171,6 +170,16 @@ public class Parser {
             body.add(parseStatement());
         }
         return body;
+    }
+
+    // Determines whether a token sits on an indented line.
+    private boolean isIndented(Token token) {
+        int lineIndex = token.getLine() - 1; // Token.line is 1-based
+        if (lineIndex < 0 || lineIndex >= sourceLines.length) {
+            return false;
+        }
+        String line = sourceLines[lineIndex];
+        return !line.isEmpty() && (line.charAt(0) == ' ' || line.charAt(0) == '\t');
     }
 
 }
