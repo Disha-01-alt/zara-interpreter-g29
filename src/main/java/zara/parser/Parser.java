@@ -162,7 +162,14 @@ public class Parser {
                     headerLine
             );
         }
-
+        while (current().getType() != TokenType.EOF && isIndented(current())) {
+            // Skip blank lines inside a block
+            if (current().getType() == TokenType.NEWLINE) {
+                consume();
+                continue;
+            }
+            body.add(parseStatement());
+        }
         return body;
     }
 
