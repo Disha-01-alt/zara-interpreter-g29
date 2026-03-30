@@ -182,4 +182,31 @@ public class Parser {
         return !line.isEmpty() && (line.charAt(0) == ' ' || line.charAt(0) == '\t');
     }
 
+
+    // .....................Expression parsing — three-level precedence chain...........................
+
+    // Level 1 — lowest precedence: +, -, >, <
+
+    private Expression parseExpression() {
+        Expression left = parseTerm();
+
+        while (true) {
+            TokenType type = current().getType();
+            if (type == TokenType.PLUS || type == TokenType.MINUS
+                    || type == TokenType.GREATER || type == TokenType.LESS) {
+                String operator = consume().getValue();
+                Expression right = parseTerm();
+                left = new BinaryOpNode(operator, left, right);
+            } else {
+                break;
+            }
+        }
+
+        return left;
+    }
+
+
+
+
+
 }
