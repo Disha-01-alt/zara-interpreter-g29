@@ -150,7 +150,20 @@ public class Parser {
         return new RepeatInstruction(count, body);
     }
 
+    // Block parser (indented body for when / loop)
 
+    private List<Instruction> parseBlock(int headerLine) {
+        List<Instruction> body = new ArrayList<>();
 
+        // A block must contain at least one statement.
+        if (current().getType() == TokenType.EOF || !isIndented(current())) {
+            throw new ParseException(
+                    "Line " + headerLine + ": expected an indented block after ':'.",
+                    headerLine
+            );
+        }
+
+        return body;
+    }
 
 }
