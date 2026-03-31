@@ -276,6 +276,10 @@ public class Parser {
         return tokens.get(pos);
     }
 
+    // Returns the current token and advances pos by one.
+    private Token consume() {
+        return tokens.get(pos++);
+    }
 
 
 }
