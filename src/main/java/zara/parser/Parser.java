@@ -269,6 +269,13 @@ public class Parser {
         }
     }
 
+    // Helper methods
+
+    // Returns the current token without advancing pos.
+    private Token current() {
+        return tokens.get(pos);
+    }
+
 
 
 }
