@@ -224,6 +224,50 @@ public class Parser {
         return left;
     }
 
+    // Level 3 — highest precedence / base case.
+        // NUMBER     → NumberNode
+       // STRING     → StringNode
+      // IDENTIFIER → VariableNode
+
+
+    private Expression parsePrimary() {
+        Token tok = current();
+
+        switch (tok.getType()) {
+
+            case NUMBER: {
+                consume();
+                double value;
+                try {
+                    value = Double.parseDouble(tok.getValue());
+                } catch (NumberFormatException e) {
+                    throw new ParseException(
+                            "Line " + tok.getLine() + ": invalid number literal '" + tok.getValue() + "'.",
+                            tok.getLine()
+                    );
+                }
+                return new NumberNode(value);
+            }
+
+            case STRING: {
+                consume();
+                // Value already has quotes stripped by the Tokenizer
+                return new StringNode(tok.getValue());
+            }
+
+            case IDENTIFIER: {
+                consume();
+                return new VariableNode(tok.getValue());
+            }
+
+            default:
+                throw new ParseException(
+                        "Line " + tok.getLine() + ": expected a value (number, string, or variable) "
+                                + "but found '" + tok.getValue() + "' (" + tok.getType() + ").",
+                        tok.getLine()
+                );
+        }
+    }
 
 
 
