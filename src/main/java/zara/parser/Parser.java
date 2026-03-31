@@ -281,5 +281,20 @@ public class Parser {
         return tokens.get(pos++);
     }
 
+    // Consumes the current token if it matches type.
+    //@throws ParseException with line number if the match fails.
+
+    private Token expect(TokenType expected) {
+        Token tok = current();
+        if (tok.getType() != expected) {
+            throw new ParseException(
+                    "Line " + tok.getLine() + ": expected " + expected
+                            + " but found '" + tok.getValue() + "' (" + tok.getType() + ").",
+                    tok.getLine()
+            );
+        }
+        return consume();
+    }
+
 
 }
