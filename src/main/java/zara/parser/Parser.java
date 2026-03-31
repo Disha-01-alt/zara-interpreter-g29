@@ -296,5 +296,22 @@ public class Parser {
         return consume();
     }
 
+    // Consumes a NEWLINE or EOF at the end of a statement.
+
+    private void consumeNewlineOrEOF() {
+        TokenType type = current().getType();
+        if (type == TokenType.NEWLINE) {
+            consume();
+        } else if (type == TokenType.EOF) {
+            // Acceptable — last statement in source has no trailing newline
+        } else {
+            Token tok = current();
+            throw new ParseException(
+                    "Line " + tok.getLine() + ": expected end of line after statement, "
+                            + "but found '" + tok.getValue() + "' (" + tok.getType() + ").",
+                    tok.getLine()
+            );
+        }
+    }
 
 }
