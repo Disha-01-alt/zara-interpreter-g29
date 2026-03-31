@@ -205,6 +205,24 @@ public class Parser {
         return left;
     }
 
+    // Level 2 — higher precedence: *, /
+
+    private Expression parseTerm() {
+        Expression left = parsePrimary();
+
+        while (true) {
+            TokenType type = current().getType();
+            if (type == TokenType.STAR || type == TokenType.SLASH) {
+                String operator = consume().getValue();
+                Expression right = parsePrimary();
+                left = new BinaryOpNode(operator, left, right);
+            } else {
+                break;
+            }
+        }
+
+        return left;
+    }
 
 
 
