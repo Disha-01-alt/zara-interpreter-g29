@@ -13,10 +13,10 @@ import static org.junit.jupiter.api.Assertions.*;
  * you can immediately see which rule failed.
  *
  * How to run (plain javac — no build tool):
- * 1. Download junit-platform-console-standalone JAR
- * 2. javac -cp junit.jar -d out src/test/java/zara/lexer/TokenizerTest.java
- * 3. java -cp junit.jar:out org.junit.platform.console.ConsoleLauncher
- * --select-class=zara.lexer.TokenizerTest
+ *   1. Download junit-platform-console-standalone JAR
+ *   2. javac -cp junit.jar -d out src/test/java/zara/lexer/TokenizerTest.java
+ *   3. java  -cp junit.jar:out org.junit.platform.console.ConsoleLauncher
+ *            --select-class=zara.lexer.TokenizerTest
  */
 class TokenizerTest {
 
@@ -45,8 +45,8 @@ class TokenizerTest {
     void tokenStoresAllThreeFields() {
         Token t = new Token(TokenType.NUMBER, "42", 5);
         assertEquals(TokenType.NUMBER, t.getType());
-        assertEquals("42", t.getValue());
-        assertEquals(5, t.getLine());
+        assertEquals("42",            t.getValue());
+        assertEquals(5,               t.getLine());
     }
 
     @Test
@@ -55,8 +55,8 @@ class TokenizerTest {
         String s = t.toString();
         // must mention the type, value, and line somehow
         assertTrue(s.contains("IDENTIFIER"), "toString should include type");
-        assertTrue(s.contains("result"), "toString should include value");
-        assertTrue(s.contains("2"), "toString should include line number");
+        assertTrue(s.contains("result"),     "toString should include value");
+        assertTrue(s.contains("2"),          "toString should include line number");
     }
 
     // ── EOF is always present ─────────────────────────────────────────────────
@@ -117,7 +117,7 @@ class TokenizerTest {
     void allFourKeywordsOnOneLine() {
         List<Token> tokens = lex("set show when loop");
         assertEquals(4, tokens.size());
-        assertEquals(TokenType.SET, tokens.get(0).getType());
+        assertEquals(TokenType.SET,  tokens.get(0).getType());
         assertEquals(TokenType.SHOW, tokens.get(1).getType());
         assertEquals(TokenType.WHEN, tokens.get(2).getType());
         assertEquals(TokenType.LOOP, tokens.get(3).getType());
@@ -194,7 +194,7 @@ class TokenizerTest {
         List<Token> tokens = lex("\"Pass\"");
         String value = tokens.get(0).getValue();
         assertFalse(value.startsWith("\""), "String value must NOT start with a quote");
-        assertFalse(value.endsWith("\""), "String value must NOT end with a quote");
+        assertFalse(value.endsWith("\""),   "String value must NOT end with a quote");
         assertEquals("Pass", value);
     }
 
@@ -261,7 +261,7 @@ class TokenizerTest {
         List<Token> tokens = lex("  x  +  y  ");
         assertEquals(3, tokens.size());
         assertEquals(TokenType.IDENTIFIER, tokens.get(0).getType());
-        assertEquals(TokenType.PLUS, tokens.get(1).getType());
+        assertEquals(TokenType.PLUS,       tokens.get(1).getType());
         assertEquals(TokenType.IDENTIFIER, tokens.get(2).getType());
     }
 
@@ -276,7 +276,7 @@ class TokenizerTest {
         List<Token> tokens = lex("x\ny");
         assertEquals(3, tokens.size());
         assertEquals(TokenType.IDENTIFIER, tokens.get(0).getType());
-        assertEquals(TokenType.NEWLINE, tokens.get(1).getType());
+        assertEquals(TokenType.NEWLINE,    tokens.get(1).getType());
         assertEquals(TokenType.IDENTIFIER, tokens.get(2).getType());
     }
 
@@ -286,9 +286,9 @@ class TokenizerTest {
         // the Tokenizer must still produce the correct tokens
         List<Token> tokens = lex("    show \"Pass\"");
         assertEquals(2, tokens.size());
-        assertEquals(TokenType.SHOW, tokens.get(0).getType());
+        assertEquals(TokenType.SHOW,   tokens.get(0).getType());
         assertEquals(TokenType.STRING, tokens.get(1).getType());
-        assertEquals("Pass", tokens.get(1).getValue());
+        assertEquals("Pass",           tokens.get(1).getValue());
     }
 
     // ── Line numbers ──────────────────────────────────────────────────────────

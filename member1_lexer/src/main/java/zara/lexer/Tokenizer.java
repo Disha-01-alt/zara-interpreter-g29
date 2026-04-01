@@ -7,33 +7,33 @@ import java.util.List;
  * Stage 1 of the ZARA pipeline.
  *
  * Reads a raw source String character by character and produces a
- * flat List<Token>. The last token in the list is always EOF.
+ * flat List<Token>.  The last token in the list is always EOF.
  *
  * Responsibilities (this class only):
- * - Recognise every token type defined in TokenType
- * - Track line numbers accurately
- * - Strip quote characters from string literals
- * - Distinguish '=' (ASSIGN) from '==' (EQUALS)
- * - Skip spaces and tabs (but NOT newlines — they are significant)
+ *   - Recognise every token type defined in TokenType
+ *   - Track line numbers accurately
+ *   - Strip quote characters from string literals
+ *   - Distinguish '=' (ASSIGN) from '==' (EQUALS)
+ *   - Skip spaces and tabs (but NOT newlines — they are significant)
  *
  * This class does NOT:
- * - Understand grammar or instruction structure (that is the Parser's job)
- * - Evaluate expressions or look up variables
- * - Produce any output
+ *   - Understand grammar or instruction structure (that is the Parser's job)
+ *   - Evaluate expressions or look up variables
+ *   - Produce any output
  */
 public class Tokenizer {
 
     private final String source;
-    private int pos; // index of the character we are about to read
-    private int line; // current 1-based line number
+    private int pos;    // index of the character we are about to read
+    private int line;   // current 1-based line number
 
     /**
      * @param source the complete ZARA source code as a single String
      */
     public Tokenizer(String source) {
         this.source = source;
-        this.pos = 0;
-        this.line = 1;
+        this.pos    = 0;
+        this.line   = 1;
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ public class Tokenizer {
 
         while (pos < source.length()) {
 
-            skipWhitespace(); // skip spaces/tabs, leave pos on next real char
+            skipWhitespace();               // skip spaces/tabs, leave pos on next real char
 
             if (pos >= source.length()) {
                 break;
@@ -83,7 +83,7 @@ public class Tokenizer {
 
     /**
      * Reads a numeric literal (integer or decimal).
-     * Examples in ZARA source: 10 3 85 3.14
+     * Examples in ZARA source: 10  3  85  3.14
      */
     private Token readNumber() {
         int start = pos;
@@ -99,18 +99,18 @@ public class Tokenizer {
      * The opening " has already been peeked but NOT consumed.
      * The returned token's value does NOT include the surrounding quotes.
      *
-     * Example: source text "Hello from ZARA"
-     * token value Hello from ZARA
+     * Example:  source text  "Hello from ZARA"
+     *           token value   Hello from ZARA
      */
     private Token readString() {
-        advance(); // consume the opening "
+        advance();                          // consume the opening "
         int start = pos;
         while (pos < source.length() && peek() != '"') {
             advance();
         }
         String content = source.substring(start, pos);
         if (pos < source.length()) {
-            advance(); // consume the closing "
+            advance();                      // consume the closing "
         }
         return new Token(TokenType.STRING, content, line);
     }
@@ -122,22 +122,22 @@ public class Tokenizer {
      * If it matches a keyword, the corresponding TokenType is used.
      * Otherwise the token type is IDENTIFIER.
      *
-     * ZARA keywords: set show when loop
+     * ZARA keywords: set  show  when  loop
      */
     private Token readIdentifierOrKeyword() {
         int start = pos;
         while (pos < source.length() &&
-                (Character.isLetterOrDigit(peek()) || peek() == '_')) {
+               (Character.isLetterOrDigit(peek()) || peek() == '_')) {
             advance();
         }
         String word = source.substring(start, pos);
 
         TokenType type = switch (word) {
-            case "set" -> TokenType.SET;
+            case "set"  -> TokenType.SET;
             case "show" -> TokenType.SHOW;
             case "when" -> TokenType.WHEN;
             case "loop" -> TokenType.LOOP;
-            default -> TokenType.IDENTIFIER;
+            default     -> TokenType.IDENTIFIER;
         };
 
         return new Token(type, word, line);
@@ -147,8 +147,8 @@ public class Tokenizer {
      * Reads a single operator character (or '==' as a two-character operator).
      *
      * The critical case is '=':
-     * If the next character is also '=', emit EQUALS ("==").
-     * Otherwise emit ASSIGN ("=").
+     *   If the next character is also '=', emit EQUALS ("==").
+     *   Otherwise emit ASSIGN ("=").
      *
      * All other operators are exactly one character.
      */
@@ -166,14 +166,14 @@ public class Tokenizer {
             case '=' -> {
                 // peek ahead: '==' is EQUALS, lone '=' is ASSIGN
                 if (pos < source.length() && peek() == '=') {
-                    advance(); // consume the second '='
+                    advance();              // consume the second '='
                     yield TokenType.EQUALS;
                 } else {
                     yield TokenType.ASSIGN;
                 }
             }
             default -> throw new RuntimeException(
-                    "Line " + line + ": Unexpected character '" + c + "'");
+                "Line " + line + ": Unexpected character '" + c + "'");
         };
 
         // For '==', value is "=="; for everything else, value is the single char
@@ -207,8 +207,7 @@ public class Tokenizer {
      * Returns '\0' if pos+1 is out of bounds.
      */
     private char peekNext() {
-        if (pos + 1 >= source.length())
-            return '\0';
+        if (pos + 1 >= source.length()) return '\0';
         return source.charAt(pos + 1);
     }
 

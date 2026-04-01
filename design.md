@@ -36,7 +36,7 @@ This is a **design document**, not an implementation guide. It describes:
 - What contract (interface/signature) it exposes
 - Why each design decision was made
 
-It does **not** describe how to write the method bodies — that is the implementation work your team must do. Where code appears, it shows **structure and contracts only**, with bodies intentionally left empty. The reasoning sections explain the thinking; translating that thinking into working code is yours to do.
+It does **not** describe how to write the method bodies — that is the implementation work our team must do. Where code appears, it shows **structure and contracts only**, with bodies intentionally left empty. The reasoning sections explain the thinking; translating that thinking into working code is yours to do.
 
 ---
 
