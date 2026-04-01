@@ -1,4 +1,4 @@
-package main.java.zara.parser;
+package zara.parser;
 
 public class ParseException extends RuntimeException {
     private final int line;
