@@ -1,9 +1,8 @@
-package main.java.zara.parser;
-
-import main.java.zara.lexer.Token;
-import main.java.zara.lexer.TokenType;
-import main.java.zara.ast.*;
-import main.java.zara.instruction.*;
+package zara.parser;
+import main.java.zara.parser.ParseException;
+import zara.lexer.*;
+import zara.ast.*;
+import zara.instruction.*;
 
 import java.util.ArrayList;
 import java.util.List;
