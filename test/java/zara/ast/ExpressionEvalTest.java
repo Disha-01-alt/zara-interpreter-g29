@@ -1,9 +1,8 @@
-java
-        package zara.ast;
+package zara.ast;
 
 import org.junit.jupiter.api.Test;
 import zara.runtime.Environment;
-import main.java.zara.ast.*;
+import zara.ast.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
