@@ -1,5 +1,5 @@
 package zara.parser;
-import main.java.zara.parser.ParseException;
+import zara.parser.ParseException;
 import zara.lexer.*;
 import zara.ast.*;
 import zara.instruction.*;
@@ -301,7 +301,7 @@ public class Parser {
         TokenType type = current().getType();
         if (type == TokenType.NEWLINE) {
             consume();
-        } else if (type == TokenType.EOF) {
+        } else if(type == TokenType.EOF) {
             // Acceptable — last statement in source has no trailing newline
         } else {
             Token tok = current();
