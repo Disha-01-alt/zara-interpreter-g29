@@ -29,4 +29,9 @@ public class IfInstruction implements Instruction
             }
         }
     }
+
+    @Override
+    public String toString() {
+        return "IfInstruction";
+    }
 }
