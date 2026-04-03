@@ -34,4 +34,9 @@ public class PrintInstruction implements Instruction
             System.out.println(result);
         }
     }
+
+    @Override
+    public String toString() {
+        return "PrintInstruction";
+    }
 }
