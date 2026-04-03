@@ -15,11 +15,12 @@ TABLE OF CONTENTS
   1. PROJECT OVERVIEW — What does this project do?
   2. DIRECTORY STRUCTURE — What is where?
   3. THE PIPELINE — How does code flow from source to output?
-  4. MEMBER 1 FILES — Tokenizer (Lexer)
+  4. THE CORE ENGINE — Tokenizer, Runtime & Tests
      4a. TokenType.java
      4b. Token.java
      4c. Tokenizer.java
-  5. MEMBER 2 FILES — Parser & AST
+     (And all related testing, runtime, and sample project files)
+  5. THE PARSE PHASE — Parser & AST
      5a. Expression.java (interface)
      5b. NumberNode.java
      5c. StringNode.java
@@ -27,7 +28,7 @@ TABLE OF CONTENTS
      5e. BinaryOpNode.java
      5f. ParseException.java
      5g. Parser.java
-  6. MEMBER 3 FILES — Execution, Interpreter & Testing
+  6. THE EXECUTION PHASE — Instructions & Interpreter
      6a. Instruction.java (interface)
      6b. AssignInstruction.java
      6c. PrintInstruction.java
@@ -74,23 +75,23 @@ zara-interpreter-g29/
 │   │
 │   ├── Main.java                    ← ENTRY POINT — reads file, starts interpreter
 │   │
-│   ├── lexer/                       ← MEMBER 1's WORK (Tokenization)
+│   ├── lexer/                       ← STAGE 1 (Tokenization)
 │   │   ├── TokenType.java           ← Enum listing all types of tokens
 │   │   ├── Token.java               ← Data class: one piece of source code
 │   │   └── Tokenizer.java           ← Reads source string → produces List<Token>
 │   │
-│   ├── ast/                         ← MEMBER 2's WORK (Expression Tree)
+│   ├── ast/                         ← STAGE 2 (Expression Tree)
 │   │   ├── Expression.java          ← Interface: evaluate(env) → Object
 │   │   ├── NumberNode.java          ← Holds a number literal (e.g., 42)
 │   │   ├── StringNode.java          ← Holds a string literal (e.g., "hello")
 │   │   ├── VariableNode.java        ← Holds a variable name (e.g., x)
 │   │   └── BinaryOpNode.java        ← Two expressions joined by operator (x + y)
 │   │
-│   ├── parser/                      ← MEMBER 2's WORK (Grammar Analysis)
+│   ├── parser/                      ← STAGE 2 (Grammar Analysis)
 │   │   ├── ParseException.java      ← Custom error for parse failures
 │   │   └── Parser.java              ← Reads List<Token> → produces List<Instruction>
 │   │
-│   ├── instruction/                 ← MEMBER 3's WORK (Execution)
+│   ├── instruction/                 ← STAGE 3 (Execution)
 │   │   ├── Instruction.java         ← Interface: execute(env) → void
 │   │   ├── AssignInstruction.java   ← Handles: set x = <expr>
 │   │   ├── PrintInstruction.java    ← Handles: show <expr>
@@ -98,11 +99,11 @@ zara-interpreter-g29/
 │   │   ├── RepeatInstruction.java   ← Handles: loop <n>: <body>
 │   │   └── BlockInstruction.java    ← Groups multiple instructions together
 │   │
-│   └── runtime/                     ← MEMBER 3's WORK (Runtime)
+│   └── runtime/                     ← STAGE 3 (Runtime Engine)
 │       ├── Environment.java         ← Variable store: name → value
 │       └── Interpreter.java         ← Orchestrates the 3-stage pipeline
 │
-├── test/java/zara/                  ← ALL TESTS
+├── test/java/zara/                  ← PROJECT TESTS
 │   ├── lexer/TokenizerTest.java
 │   ├── ast/ExpressionEvalTest.java
 │   ├── parser/ParserTest.java
@@ -115,7 +116,7 @@ zara-interpreter-g29/
 │       ├── BlockInstructionTest.java
 │       └── InterpreterIntegrationTest.java
 │
-├── samples/                         ← THE 4 REQUIRED SAMPLE PROGRAMS
+├── samples/                         ← SAMPLE PROGRAMS
 │   ├── program1_arithmetic.zara     ← Output: 16
 │   ├── program2_strings.zara        ← Output: Sitare / Hello from ZARA
 │   ├── program3_conditional.zara    ← Output: Pass
@@ -137,7 +138,7 @@ Why this structure?
 
 Let's trace what happens when we run:  set result = x + y * 2
 
-STAGE 1 — TOKENIZER (Member 1)
+STAGE 1 — TOKENIZER
   Input:  "set result = x + y * 2"  (raw characters)
   Output: [SET, IDENTIFIER("result"), ASSIGN, IDENTIFIER("x"),
            PLUS, IDENTIFIER("y"), STAR, NUMBER("2")]
@@ -148,7 +149,7 @@ STAGE 1 — TOKENIZER (Member 1)
   - Sees "=" → single = → emits ASSIGN
   - And so on...
 
-STAGE 2 — PARSER (Member 2)
+STAGE 2 — PARSER
   Input:  List<Token> from above
   Output: AssignInstruction tree:
 
@@ -170,7 +171,7 @@ STAGE 2 — PARSER (Member 2)
   the * operator gets "grabbed" before the + operator. This is how we get
   correct math order WITHOUT any special logic.
 
-STAGE 3 — EXECUTOR (Member 3)
+STAGE 3 — EXECUTOR
   Input:  List<Instruction> + a fresh Environment
   Output: Side effects (printing, setting variables)
 
@@ -188,8 +189,11 @@ STAGE 3 — EXECUTOR (Member 3)
 
 
 ================================================================================
-4. MEMBER 1 FILES — TOKENIZER (LEXER)
+4. STAGE 1 — THE CORE ENGINE & TOKENIZER
 ================================================================================
+  
+This covers the Lexer implementation, directory structure setup, unified test 
+suite, standard runtime setup, and program samples.
 
 ────────────────────────────────────────────────────────────────────────────────
 4a. TokenType.java — The vocabulary of ZARA
@@ -353,7 +357,7 @@ Helper methods:
 
 
 ================================================================================
-5. MEMBER 2 FILES — PARSER & AST
+5. STAGE 2 — PARSER & AST
 ================================================================================
 
 ────────────────────────────────────────────────────────────────────────────────
@@ -628,7 +632,7 @@ EXPRESSION PARSING — THE PRECEDENCE CHAIN:
 
 
 ================================================================================
-6. MEMBER 3 FILES — EXECUTION, INTERPRETER & TESTING
+6. STAGE 3 — EXECUTION, INTERPRETER & TESTING
 ================================================================================
 
 ────────────────────────────────────────────────────────────────────────────────
