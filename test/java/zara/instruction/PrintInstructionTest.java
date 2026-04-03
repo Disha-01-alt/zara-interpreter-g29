@@ -11,56 +11,81 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PrintInstructionTest {
 
+    private String captureOutput(Runnable action) {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        PrintStream original = System.out;
+        System.setOut(new PrintStream(output));
+        action.run();
+        System.setOut(original);
+        return output.toString().replace("\r", "").trim();
+    }
+
     @Test
     void shouldPrintIntegerWithoutDecimal() {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        System.setOut(new PrintStream(output));
-
         Environment env = new Environment();
         PrintInstruction print = new PrintInstruction(new NumberNode(16));
-        print.execute(env);
-
-        assertEquals("16", output.toString().trim());
-        System.setOut(System.out);
+        assertEquals("16", captureOutput(() -> print.execute(env)));
     }
 
     @Test
     void shouldPrintDecimalNumber() {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        System.setOut(new PrintStream(output));
-
         Environment env = new Environment();
         PrintInstruction print = new PrintInstruction(new NumberNode(3.14));
-        print.execute(env);
-
-        assertEquals("3.14", output.toString().trim());
-        System.setOut(System.out);
+        assertEquals("3.14", captureOutput(() -> print.execute(env)));
     }
 
     @Test
     void shouldPrintString() {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        System.setOut(new PrintStream(output));
-
         Environment env = new Environment();
         PrintInstruction print = new PrintInstruction(new StringNode("Hello from ZARA"));
-        print.execute(env);
-
-        assertEquals("Hello from ZARA", output.toString().trim());
-        System.setOut(System.out);
+        assertEquals("Hello from ZARA", captureOutput(() -> print.execute(env)));
     }
 
     @Test
     void shouldPrintVariableValue() {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        System.setOut(new PrintStream(output));
-
         Environment env = new Environment();
         env.set("name", "Sitare");
         PrintInstruction print = new PrintInstruction(new VariableNode("name"));
-        print.execute(env);
+        assertEquals("Sitare", captureOutput(() -> print.execute(env)));
+    }
 
-        assertEquals("Sitare", output.toString().trim());
-        System.setOut(System.out);
+    @Test
+    void shouldPrintZeroAsInteger() {
+        Environment env = new Environment();
+        PrintInstruction print = new PrintInstruction(new NumberNode(0));
+        assertEquals("0", captureOutput(() -> print.execute(env)));
+    }
+
+    @Test
+    void shouldPrintNegativeInteger() {
+        Environment env = new Environment();
+        PrintInstruction print = new PrintInstruction(new NumberNode(-5));
+        assertEquals("-5", captureOutput(() -> print.execute(env)));
+    }
+
+    @Test
+    void shouldPrintEmptyString() {
+        Environment env = new Environment();
+        PrintInstruction print = new PrintInstruction(new StringNode(""));
+        assertEquals("", captureOutput(() -> print.execute(env)));
+    }
+
+    @Test
+    void shouldThrowOnNullExpression() {
+        assertThrows(IllegalArgumentException.class, () ->
+                new PrintInstruction(null));
+    }
+
+    @Test
+    void shouldThrowOnUndefinedVariable() {
+        Environment env = new Environment();
+        PrintInstruction print = new PrintInstruction(new VariableNode("unknown"));
+        assertThrows(RuntimeException.class, () -> print.execute(env));
+    }
+
+    @Test
+    void shouldReturnCorrectToString() {
+        PrintInstruction print = new PrintInstruction(new NumberNode(42));
+        assertTrue(print.toString().contains("PrintInstruction"));
     }
 }

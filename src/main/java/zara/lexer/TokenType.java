@@ -45,6 +45,9 @@ public enum TokenType {
     EQUALS,        // ==  (double equals — equality comparison)
     GREATER,       // >
     LESS,          // <
+    GREATER_EQUAL,     // >=
+    LESS_EQUAL,        // <=
+    NOT_EQUAL,         // !=
 
     // ── Structure ─────────────────────────────────────────────────────────────
     COLON,         // :   (ends a when/loop header line)
