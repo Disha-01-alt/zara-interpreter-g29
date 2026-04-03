@@ -15,6 +15,11 @@ public class VariableNode implements Expression {
     }
 
     @Override
+    public String toString() {
+        return "VariableNode(" + name + ")";
+    }
+
+    @Override
     public Object evaluate(Environment env) {
         return env.get(name);
     }
