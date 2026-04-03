@@ -17,4 +17,9 @@ public class BlockInstruction implements Instruction {
             instr.execute(env);
         }
     }
+
+    @Override
+    public String toString() {
+        return "BlockInstruction";
+    }
 }

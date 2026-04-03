@@ -13,6 +13,10 @@ package zara.lexer;
  *    The Parser uses INDENT/DEDENT as unambiguous block start/end markers.
  *  - EOF is always the last token in the list, exactly once.
  */
+/**
+ * Represents the different types of tokens in the ZARA language.
+ * Includes literals, keywords, operators, and block structure tokens.
+ */
 public enum TokenType {
 
     // ── Literals ──────────────────────────────────────────────────────────────
