@@ -1,5 +1,5 @@
 package zara.parser;
-import zara.parser.ParseException;
+
 import zara.lexer.*;
 import zara.ast.*;
 import zara.instruction.*;
@@ -7,38 +7,62 @@ import zara.instruction.*;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Stage 2 of the ZARA pipeline.
+ *
+ * Reads the List<Token> produced by the Tokenizer and builds a
+ * List<Instruction> — the executable program.
+ *
+ * Grammar (simplified):
+ *   program     → statement* EOF
+ *   statement   → assignment | print | conditional | loop
+ *   assignment  → SET IDENTIFIER ASSIGN expression NEWLINE
+ *   print       → SHOW expression NEWLINE
+ *   conditional → WHEN expression COLON NEWLINE INDENT statement+ DEDENT
+ *   loop        → LOOP NUMBER COLON NEWLINE INDENT statement+ DEDENT
+ *
+ * Expression precedence (lowest → highest):
+ *   1. parseExpression : +  -  >  <  ==
+ *   2. parseTerm       : *  /
+ *   3. parsePrimary    : NUMBER | STRING | IDENTIFIER | ( expression )
+ */
 public class Parser {
+
     private final List<Token> tokens;
-    private final String[] sourceLines;
     private int pos;
 
-    // Constructor
-
-    public Parser(List<Token> tokens, String sourceCode) {
+    /**
+     * @param tokens the token list produced by Tokenizer.tokenize()
+     */
+    public Parser(List<Token> tokens) {
         this.tokens = tokens;
-        this.sourceLines = sourceCode.split("\n", -1);
         this.pos = 0;
     }
 
+    // ── Public API ────────────────────────────────────────────────────────────
 
-
+    /**
+     * Parses the full token stream into a list of executable instructions.
+     *
+     * @return the program as an ordered list of instructions
+     */
     public List<Instruction> parse() {
         List<Instruction> instructions = new ArrayList<>();
 
         while (current().getType() != TokenType.EOF) {
-            // Skip blank lines
+            // Skip blank / empty lines
             if (current().getType() == TokenType.NEWLINE) {
                 consume();
                 continue;
             }
-
             instructions.add(parseStatement());
         }
 
         return instructions;
     }
 
-    // Statement dispatcher
+    // ── Statement dispatcher ──────────────────────────────────────────────────
+
     private Instruction parseStatement() {
         Token tok = current();
 
@@ -51,16 +75,17 @@ public class Parser {
                 return parseConditional();
             case LOOP:
                 return parseLoop();
-
             default:
                 throw new ParseException(
-                        "Line " + tok.getLine() + ": unexpected token '" + tok.getValue()
+                        "Line " + tok.getLine() + ": unexpected token '"
+                                + tok.getValue()
                                 + "'. Expected a statement (set / show / when / loop).",
                         tok.getLine()
                 );
         }
     }
 
+    // ── Statement parsers ─────────────────────────────────────────────────────
 
     /**
      * Parses:  set <identifier> = <expression> <NEWLINE>
@@ -81,8 +106,7 @@ public class Parser {
         return new AssignInstruction(variableName, expr);
     }
 
-
-    /*
+    /**
      * Parses:  show <expression> <NEWLINE>
      * Produces: PrintInstruction
      */
@@ -96,37 +120,34 @@ public class Parser {
         return new PrintInstruction(expr);
     }
 
-
-    /*
+    /**
      * Parses:
-     *   when <expression> :
-     *       <indented block>
+     *   when <expression> : NEWLINE
+     *       INDENT <block> DEDENT
      * Produces: IfInstruction
      */
     private Instruction parseConditional() {
-        Token whenToken = expect(TokenType.WHEN);
+        expect(TokenType.WHEN);
 
         Expression condition = parseExpression();
 
         expect(TokenType.COLON);
         expect(TokenType.NEWLINE);
 
-        List<Instruction> body = parseBlock(whenToken.getLine());
+        List<Instruction> body = parseBlock();
 
         return new IfInstruction(condition, body);
     }
 
-
-    /*
+    /**
      * Parses:
-     *   loop <NUMBER> :
-     *       <indented block>
+     *   loop <NUMBER> : NEWLINE
+     *       INDENT <block> DEDENT
      * The loop count is a literal integer — not an expression.
      * Produces: RepeatInstruction
      */
-
     private Instruction parseLoop() {
-        Token loopToken = expect(TokenType.LOOP);
+        expect(TokenType.LOOP);
 
         Token countToken = expect(TokenType.NUMBER);
         int count;
@@ -134,7 +155,8 @@ public class Parser {
             count = (int) Double.parseDouble(countToken.getValue());
         } catch (NumberFormatException e) {
             throw new ParseException(
-                    "Line " + countToken.getLine() + ": loop count must be an integer, got '"
+                    "Line " + countToken.getLine()
+                            + ": loop count must be an integer, got '"
                             + countToken.getValue() + "'.",
                     countToken.getLine()
             );
@@ -143,24 +165,24 @@ public class Parser {
         expect(TokenType.COLON);
         expect(TokenType.NEWLINE);
 
-        List<Instruction> body = parseBlock(loopToken.getLine());
+        List<Instruction> body = parseBlock();
 
         return new RepeatInstruction(count, body);
     }
 
+    // ── Block parser (INDENT … statements … DEDENT) ──────────────────────────
 
-    // Block parser (indented body for when / loop)
-    private List<Instruction> parseBlock(int headerLine) {
+    /**
+     * Parses an indented block opened by INDENT and closed by DEDENT.
+     * The block must contain at least one statement.
+     */
+    private List<Instruction> parseBlock() {
+        expect(TokenType.INDENT);
+
         List<Instruction> body = new ArrayList<>();
 
-        // A block must contain at least one statement.
-        if (current().getType() == TokenType.EOF || !isIndented(current())) {
-            throw new ParseException(
-                    "Line " + headerLine + ": expected an indented block after ':'.",
-                    headerLine
-            );
-        }
-        while (current().getType() != TokenType.EOF && isIndented(current())) {
+        while (current().getType() != TokenType.DEDENT
+                && current().getType() != TokenType.EOF) {
             // Skip blank lines inside a block
             if (current().getType() == TokenType.NEWLINE) {
                 consume();
@@ -168,34 +190,37 @@ public class Parser {
             }
             body.add(parseStatement());
         }
+
+        if (current().getType() == TokenType.DEDENT) {
+            consume();  // consume the DEDENT
+        }
+
+        if (body.isEmpty()) {
+            throw new ParseException(
+                    "Empty block — expected at least one statement after ':'.",
+                    current().getLine()
+            );
+        }
+
         return body;
     }
 
-    // Determines whether a token sits on an indented line.
-    private boolean isIndented(Token token) {
-        int lineIndex = token.getLine() - 1; // Token.line is 1-based
-        if (lineIndex < 0 || lineIndex >= sourceLines.length) {
-            return false;
-        }
-        String line = sourceLines[lineIndex];
-        return !line.isEmpty() && (line.charAt(0) == ' ' || line.charAt(0) == '\t');
-    }
+    // ── Expression parsing — three-level precedence chain ─────────────────────
 
-
-    // .....................Expression parsing — three-level precedence chain...........................
-
-    // Level 1 — lowest precedence: +, -, >, <
-
+    /**
+     * Level 1 — lowest precedence: +  -  >  <  ==
+     */
     private Expression parseExpression() {
         Expression left = parseTerm();
 
         while (true) {
             TokenType type = current().getType();
             if (type == TokenType.PLUS || type == TokenType.MINUS
-                    || type == TokenType.GREATER || type == TokenType.LESS) {
+                    || type == TokenType.GREATER || type == TokenType.LESS
+                    || type == TokenType.EQUALS) {
                 String operator = consume().getValue();
                 Expression right = parseTerm();
-                left = new BinaryOpNode(operator, left, right);
+                left = new BinaryOpNode(left, operator, right);
             } else {
                 break;
             }
@@ -204,8 +229,9 @@ public class Parser {
         return left;
     }
 
-    // Level 2 — higher precedence: *, /
-
+    /**
+     * Level 2 — higher precedence: *  /
+     */
     private Expression parseTerm() {
         Expression left = parsePrimary();
 
@@ -214,7 +240,7 @@ public class Parser {
             if (type == TokenType.STAR || type == TokenType.SLASH) {
                 String operator = consume().getValue();
                 Expression right = parsePrimary();
-                left = new BinaryOpNode(operator, left, right);
+                left = new BinaryOpNode(left, operator, right);
             } else {
                 break;
             }
@@ -223,12 +249,13 @@ public class Parser {
         return left;
     }
 
-    // Level 3 — highest precedence / base case.
-        // NUMBER     → NumberNode
-       // STRING     → StringNode
-      // IDENTIFIER → VariableNode
-
-
+    /**
+     * Level 3 — highest precedence / base case.
+     *   NUMBER     → NumberNode
+     *   STRING     → StringNode
+     *   IDENTIFIER → VariableNode
+     *   LPAREN     → ( expression )
+     */
     private Expression parsePrimary() {
         Token tok = current();
 
@@ -241,7 +268,9 @@ public class Parser {
                     value = Double.parseDouble(tok.getValue());
                 } catch (NumberFormatException e) {
                     throw new ParseException(
-                            "Line " + tok.getLine() + ": invalid number literal '" + tok.getValue() + "'.",
+                            "Line " + tok.getLine()
+                                    + ": invalid number literal '"
+                                    + tok.getValue() + "'.",
                             tok.getLine()
                     );
                 }
@@ -250,7 +279,6 @@ public class Parser {
 
             case STRING: {
                 consume();
-                // Value already has quotes stripped by the Tokenizer
                 return new StringNode(tok.getValue());
             }
 
@@ -259,58 +287,72 @@ public class Parser {
                 return new VariableNode(tok.getValue());
             }
 
+            case LPAREN: {
+                consume();  // consume '('
+                Expression expr = parseExpression();
+                expect(TokenType.RPAREN);
+                return expr;
+            }
+
             default:
                 throw new ParseException(
-                        "Line " + tok.getLine() + ": expected a value (number, string, or variable) "
-                                + "but found '" + tok.getValue() + "' (" + tok.getType() + ").",
+                        "Line " + tok.getLine()
+                                + ": expected a value (number, string, or variable) "
+                                + "but found '" + tok.getValue()
+                                + "' (" + tok.getType() + ").",
                         tok.getLine()
                 );
         }
     }
 
-    // Helper methods
+    // ── Helper methods ────────────────────────────────────────────────────────
 
-    // Returns the current token without advancing pos.
+    /** Returns the current token without advancing pos. */
     private Token current() {
         return tokens.get(pos);
     }
 
-    // Returns the current token and advances pos by one.
+    /** Returns the current token and advances pos by one. */
     private Token consume() {
         return tokens.get(pos++);
     }
 
-    // Consumes the current token if it matches type.
-    //@throws ParseException with line number if the match fails.
-
+    /**
+     * Consumes the current token if it matches the expected type.
+     *
+     * @throws ParseException with line number if the match fails
+     */
     private Token expect(TokenType expected) {
         Token tok = current();
         if (tok.getType() != expected) {
             throw new ParseException(
                     "Line " + tok.getLine() + ": expected " + expected
-                            + " but found '" + tok.getValue() + "' (" + tok.getType() + ").",
+                            + " but found '" + tok.getValue()
+                            + "' (" + tok.getType() + ").",
                     tok.getLine()
             );
         }
         return consume();
     }
 
-    // Consumes a NEWLINE or EOF at the end of a statement.
-
+    /**
+     * Consumes a NEWLINE or accepts EOF at the end of a statement.
+     */
     private void consumeNewlineOrEOF() {
         TokenType type = current().getType();
         if (type == TokenType.NEWLINE) {
             consume();
-        } else if(type == TokenType.EOF) {
-            // Acceptable — last statement in source has no trailing newline
+        } else if (type == TokenType.EOF) {
+            // Last statement in source may have no trailing newline
         } else {
             Token tok = current();
             throw new ParseException(
-                    "Line " + tok.getLine() + ": expected end of line after statement, "
-                            + "but found '" + tok.getValue() + "' (" + tok.getType() + ").",
+                    "Line " + tok.getLine()
+                            + ": expected end of line after statement, "
+                            + "but found '" + tok.getValue()
+                            + "' (" + tok.getType() + ").",
                     tok.getLine()
             );
         }
     }
-
 }
