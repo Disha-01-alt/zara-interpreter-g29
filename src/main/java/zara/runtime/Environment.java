@@ -3,6 +3,9 @@ package zara.runtime;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Stores variables and their values during program execution.
+ */
 public class Environment {
     private final Map<String, Object> variables = new HashMap<>();
 
