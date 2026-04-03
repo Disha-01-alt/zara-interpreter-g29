@@ -1,0 +1,4 @@
+# Program 3: Conditional Logic
+set score = 85
+when score > 50:
+    show "Pass"
