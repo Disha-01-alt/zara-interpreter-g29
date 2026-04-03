@@ -19,7 +19,7 @@ class ParserTest {
     private List<Instruction> parse(String source) {
         zara.lexer.Tokenizer tokenizer = new zara.lexer.Tokenizer(source);
         List<zara.lexer.Token> tokens = tokenizer.tokenize();
-        Parser parser = new Parser(tokens, source);
+        Parser parser = new Parser(tokens);
         return parser.parse();
     }
 
