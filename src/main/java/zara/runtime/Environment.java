@@ -15,7 +15,7 @@ public class Environment {
 
     public Object get(String name) {
         if (!variables.containsKey(name)) {
-            throw new RuntimeException("Variable not defined: " + name);
+            throw new RuntimeException("Variable '" + name + "' is not defined in the current environment.");
         }
         return variables.get(name);
     }
