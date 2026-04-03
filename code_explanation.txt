@@ -15,10 +15,11 @@ TABLE OF CONTENTS
   1. PROJECT OVERVIEW — What does this project do?
   2. DIRECTORY STRUCTURE — What is where?
   3. THE PIPELINE — How does code flow from source to output?
-  4. MEMBER 1 FILES — Tokenizer (Lexer)
+  4. MEMBER 1 FILES — Tokenizer, Runtime, Tests & Repos
      4a. TokenType.java
      4b. Token.java
      4c. Tokenizer.java
+     (And all related testing, runtime, and sample project files)
   5. MEMBER 2 FILES — Parser & AST
      5a. Expression.java (interface)
      5b. NumberNode.java
@@ -98,11 +99,11 @@ zara-interpreter-g29/
 │   │   ├── RepeatInstruction.java   ← Handles: loop <n>: <body>
 │   │   └── BlockInstruction.java    ← Groups multiple instructions together
 │   │
-│   └── runtime/                     ← MEMBER 3's WORK (Runtime)
+│   └── runtime/                     ← MEMBER 1's WORK (Runtime Engine)
 │       ├── Environment.java         ← Variable store: name → value
 │       └── Interpreter.java         ← Orchestrates the 3-stage pipeline
 │
-├── test/java/zara/                  ← ALL TESTS
+├── test/java/zara/                  ← MEMBER 1's WORK (ALL TESTS)
 │   ├── lexer/TokenizerTest.java
 │   ├── ast/ExpressionEvalTest.java
 │   ├── parser/ParserTest.java
@@ -115,14 +116,14 @@ zara-interpreter-g29/
 │       ├── BlockInstructionTest.java
 │       └── InterpreterIntegrationTest.java
 │
-├── samples/                         ← THE 4 REQUIRED SAMPLE PROGRAMS
+├── samples/                         ← MEMBER 1's WORK (SAMPLE PROGRAMS)
 │   ├── program1_arithmetic.zara     ← Output: 16
 │   ├── program2_strings.zara        ← Output: Sitare / Hello from ZARA
 │   ├── program3_conditional.zara    ← Output: Pass
 │   └── program4_loop.zara           ← Output: 1 2 3 4
 │
 ├── design.md                        ← Our design document
-└── README.md                        ← Project documentation
+└── README.md                        ← MEMBER 1's WORK (Repository Mgmt & Docs)
 
 Why this structure?
   - Each package = one stage of the pipeline
@@ -188,8 +189,13 @@ STAGE 3 — EXECUTOR (Member 3)
 
 
 ================================================================================
-4. MEMBER 1 FILES — TOKENIZER (LEXER)
+4. MEMBER 1 FILES — TOKENIZER, RUNTIME, TESTS & REPO MANAGEMENT
 ================================================================================
+
+Member 1 handled the core Lexer implementation, established the entire directory 
+structure and repository setup, implemented the complete 33-test suite across 
+all components, established the central Runtime pipeline loop, and authored the 
+official .zara sample programs used for demonstration.
 
 ────────────────────────────────────────────────────────────────────────────────
 4a. TokenType.java — The vocabulary of ZARA
