@@ -15,7 +15,7 @@ public class Interpreter {
         List<Token> tokens = tokenizer.tokenize();
 
         // Step 2: Parse (source needed for indentation detection)
-        Parser parser = new Parser(tokens, sourceCode);
+        Parser parser = new Parser(tokens);
         List<Instruction> instructions = parser.parse();
 
         // Step 3: Execute
