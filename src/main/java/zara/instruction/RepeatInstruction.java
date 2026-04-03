@@ -22,4 +22,9 @@ public class RepeatInstruction implements Instruction {
             }
         }
     }
+
+    @Override
+    public String toString() {
+        return "RepeatInstruction(" + count + ")";
+    }
 }
