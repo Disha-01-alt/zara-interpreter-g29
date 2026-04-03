@@ -1,6 +1,8 @@
 package zara.lexer;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 
 /**
@@ -9,121 +11,158 @@ import java.util.List;
  * Reads a raw source String character by character and produces a
  * flat List<Token>. The last token in the list is always EOF.
  *
- * Responsibilities (this class only):
- * - Recognise every token type defined in TokenType
- * - Track line numbers accurately
- * - Strip quote characters from string literals
- * - Distinguish '=' (ASSIGN) from '==' (EQUALS)
- * - Skip spaces and tabs (but NOT newlines — they are significant)
+ * Responsibilities:
+ *   - Recognise every token type defined in TokenType
+ *   - Track line numbers accurately
+ *   - Strip quote characters from string literals
+ *   - Distinguish '=' (ASSIGN) from '==' (EQUALS)
+ *   - Emit INDENT / DEDENT tokens for block boundary detection
+ *   - Reject unterminated string literals with a clear error
  *
- * This class does NOT:
- * - Understand grammar or instruction structure (that is the Parser's job)
- * - Evaluate expressions or look up variables
- * - Produce any output
+ * INDENT / DEDENT logic:
+ *   ZARA uses indentation to define blocks, exactly like Python.
+ *   After every NEWLINE the Tokenizer measures the indentation of the
+ *   next non-blank line (number of leading spaces/tabs).
+ *
+ *   - If indentation INCREASES  → emit one INDENT token
+ *   - If indentation DECREASES  → emit one or more DEDENT tokens
+ *   - If indentation is the SAME → emit nothing extra
+ *
+ * Example token stream for:
+ *   when score > 50:       → WHEN IDENTIFIER GREATER NUMBER COLON NEWLINE
+ *       show "Pass"        → INDENT SHOW STRING NEWLINE
+ *   show "Done"            → DEDENT SHOW STRING NEWLINE EOF
  */
 public class Tokenizer {
 
     private final String source;
-    private int pos; // index of the character we are about to read
-    private int line; // current 1-based line number
+    private int pos;
+    private int line;
 
-    /**
-     * @param source the complete ZARA source code as a single String
-     */
+    private final Deque<Integer> indentStack = new ArrayDeque<>();
+
     public Tokenizer(String source) {
         this.source = source;
-        this.pos = 0;
-        this.line = 1;
+        this.pos    = 0;
+        this.line   = 1;
+        this.indentStack.push(0);
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    /**
-     * Tokenizes the entire source string.
-     *
-     * @return ordered list of tokens, always ending with an EOF token
-     */
     public List<Token> tokenize() {
         List<Token> tokens = new ArrayList<>();
 
         while (pos < source.length()) {
+            processIndentation(tokens);
 
-            skipWhitespace(); // skip spaces/tabs, leave pos on next real char
+            while (pos < source.length() && peek() != '\n') {
+                skipWhitespace();
 
-            if (pos >= source.length()) {
-                break;
+                if (pos >= source.length() || peek() == '\n') {
+                    break;
+                }
+
+                char c = peek();
+
+                if (c == '"') {
+                    tokens.add(readString());
+                } else if (Character.isDigit(c)) {
+                    tokens.add(readNumber());
+                } else if (Character.isLetter(c) || c == '_') {
+                    tokens.add(readIdentifierOrKeyword());
+                } else {
+                    tokens.add(readOperator());
+                }
             }
 
-            char c = peek();
-
-            if (c == '\n') {
+            if (pos < source.length() && peek() == '\n') {
                 tokens.add(new Token(TokenType.NEWLINE, "\n", line));
                 advance();
                 line++;
-
-            } else if (c == '"') {
-                tokens.add(readString());
-
-            } else if (Character.isDigit(c)) {
-                tokens.add(readNumber());
-
-            } else if (Character.isLetter(c) || c == '_') {
-                tokens.add(readIdentifierOrKeyword());
-
-            } else {
-                tokens.add(readOperator());
             }
+        }
+
+        while (indentStack.peek() > 0) {
+            tokens.add(new Token(TokenType.DEDENT, "", line));
+            indentStack.pop();
         }
 
         tokens.add(new Token(TokenType.EOF, "", line));
         return tokens;
     }
 
+    // ── Indentation handling ──────────────────────────────────────────────────
+
+    private void processIndentation(List<Token> tokens) {
+        int indent = 0;
+        int lookahead = pos;
+        while (lookahead < source.length() &&
+                (source.charAt(lookahead) == ' ' || source.charAt(lookahead) == '\t')) {
+            indent++;
+            lookahead++;
+        }
+
+        if (lookahead >= source.length() || source.charAt(lookahead) == '\n') {
+            return;
+        }
+
+        while (pos < source.length() &&
+                (peek() == ' ' || peek() == '\t')) {
+            advance();
+        }
+
+        int currentLevel = indentStack.peek();
+
+        if (indent > currentLevel) {
+            indentStack.push(indent);
+            tokens.add(new Token(TokenType.INDENT, "", line));
+
+        } else if (indent < currentLevel) {
+            while (indentStack.peek() > indent) {
+                indentStack.pop();
+                tokens.add(new Token(TokenType.DEDENT, "", line));
+            }
+            if (indentStack.peek() != indent) {
+                throw new RuntimeException(
+                        "Line " + line + ": Indentation error — does not match any outer block level");
+            }
+        }
+    }
+
     // ── Private readers ───────────────────────────────────────────────────────
 
-    /**
-     * Reads a numeric literal (integer or decimal).
-     * Examples in ZARA source: 10 3 85 3.14
-     */
     private Token readNumber() {
         int start = pos;
         while (pos < source.length() && (Character.isDigit(peek()) || peek() == '.')) {
             advance();
         }
-        String raw = source.substring(start, pos);
-        return new Token(TokenType.NUMBER, raw, line);
+        return new Token(TokenType.NUMBER, source.substring(start, pos), line);
     }
 
-    /**
-     * Reads a quoted string literal.
-     * The opening " has already been peeked but NOT consumed.
-     * The returned token's value does NOT include the surrounding quotes.
-     *
-     * Example: source text "Hello from ZARA"
-     * token value Hello from ZARA
-     */
     private Token readString() {
-        advance(); // consume the opening "
+        int openLine = line;
+        advance();
         int start = pos;
+
         while (pos < source.length() && peek() != '"') {
+            if (peek() == '\n') {
+                throw new RuntimeException(
+                        "Line " + openLine + ": Unterminated string literal");
+            }
             advance();
         }
-        String content = source.substring(start, pos);
-        if (pos < source.length()) {
-            advance(); // consume the closing "
+
+        if (pos >= source.length()) {
+            throw new RuntimeException(
+                    "Line " + openLine + ": Unterminated string literal — missing closing '\"'");
         }
+
+        String content = source.substring(start, pos);
+        advance();
         return new Token(TokenType.STRING, content, line);
     }
 
-    /**
-     * Reads an identifier or keyword.
-     * Identifiers are sequences of letters, digits, and underscores.
-     * After reading, the text is compared against the ZARA keyword list.
-     * If it matches a keyword, the corresponding TokenType is used.
-     * Otherwise the token type is IDENTIFIER.
-     *
-     * ZARA keywords: set show when loop
-     */
     private Token readIdentifierOrKeyword() {
         int start = pos;
         while (pos < source.length() &&
@@ -133,25 +172,16 @@ public class Tokenizer {
         String word = source.substring(start, pos);
 
         TokenType type = switch (word) {
-            case "set" -> TokenType.SET;
+            case "set"  -> TokenType.SET;
             case "show" -> TokenType.SHOW;
             case "when" -> TokenType.WHEN;
             case "loop" -> TokenType.LOOP;
-            default -> TokenType.IDENTIFIER;
+            default     -> TokenType.IDENTIFIER;
         };
 
         return new Token(type, word, line);
     }
 
-    /**
-     * Reads a single operator character (or '==' as a two-character operator).
-     *
-     * The critical case is '=':
-     * If the next character is also '=', emit EQUALS ("==").
-     * Otherwise emit ASSIGN ("=").
-     *
-     * All other operators are exactly one character.
-     */
     private Token readOperator() {
         char c = advance();
 
@@ -160,62 +190,69 @@ public class Tokenizer {
             case '-' -> TokenType.MINUS;
             case '*' -> TokenType.STAR;
             case '/' -> TokenType.SLASH;
-            case '>' -> TokenType.GREATER;
-            case '<' -> TokenType.LESS;
             case ':' -> TokenType.COLON;
+            case '(' -> TokenType.LPAREN;
+            case ')' -> TokenType.RPAREN;
             case '=' -> {
-                // peek ahead: '==' is EQUALS, lone '=' is ASSIGN
                 if (pos < source.length() && peek() == '=') {
-                    advance(); // consume the second '='
+                    advance();
                     yield TokenType.EQUALS;
                 } else {
                     yield TokenType.ASSIGN;
+                }
+            }
+            case '>' -> {
+                if (pos < source.length() && peek() == '=') {
+                    advance();
+                    yield TokenType.GREATER_EQUAL;
+                } else {
+                    yield TokenType.GREATER;
+                }
+            }
+            case '<' -> {
+                if (pos < source.length() && peek() == '=') {
+                    advance();
+                    yield TokenType.LESS_EQUAL;
+                } else {
+                    yield TokenType.LESS;
+                }
+            }
+            case '!' -> {
+                if (pos < source.length() && peek() == '=') {
+                    advance();
+                    yield TokenType.NOT_EQUAL;
+                } else {
+                    throw new RuntimeException(
+                            "Line " + line + ": Unexpected character '!' — did you mean '!='?");
                 }
             }
             default -> throw new RuntimeException(
                     "Line " + line + ": Unexpected character '" + c + "'");
         };
 
-        // For '==', value is "=="; for everything else, value is the single char
-        String value = (type == TokenType.EQUALS) ? "==" : String.valueOf(c);
+        String value = switch (type) {
+            case EQUALS        -> "==";
+            case GREATER_EQUAL -> ">=";
+            case LESS_EQUAL    -> "<=";
+            case NOT_EQUAL     -> "!=";
+            default            -> String.valueOf(c);
+        };
+
         return new Token(type, value, line);
     }
 
     // ── Navigation helpers ────────────────────────────────────────────────────
 
-    /**
-     * Advances pos past any space or tab characters.
-     * Does NOT skip newlines — newlines are significant tokens in ZARA.
-     */
     private void skipWhitespace() {
         while (pos < source.length() && (peek() == ' ' || peek() == '\t')) {
             advance();
         }
     }
 
-    /**
-     * Returns the character at the current position without advancing pos.
-     * Call this to look ahead before deciding what to read.
-     */
     private char peek() {
         return source.charAt(pos);
     }
 
-    /**
-     * Returns the character ONE position ahead of current without advancing.
-     * Used only for '==' detection inside readOperator().
-     * Returns '\0' if pos+1 is out of bounds.
-     */
-    private char peekNext() {
-        if (pos + 1 >= source.length())
-            return '\0';
-        return source.charAt(pos + 1);
-    }
-
-    /**
-     * Returns the character at the current position and advances pos by one.
-     * This is the only method that moves pos forward.
-     */
     private char advance() {
         return source.charAt(pos++);
     }

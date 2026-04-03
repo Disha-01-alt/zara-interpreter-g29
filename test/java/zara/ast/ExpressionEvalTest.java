@@ -6,7 +6,7 @@ import zara.ast.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class ASTTest {
+class ExpressionEvalTest {
 
     // -----------------------------------------------------------------------
     // 1. NumberNode

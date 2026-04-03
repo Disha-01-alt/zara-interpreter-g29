@@ -14,4 +14,9 @@ public class StringNode implements Expression {
     public Object evaluate(Environment env) {
         return value;
     }
+
+    @Override
+    public String toString() {
+        return "StringNode(\"" + value + "\")";
+    }
 }
