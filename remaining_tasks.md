@@ -29,9 +29,9 @@ java -cp out zara.Main samples/program4_loop.zara          # Expected: 1  2  3  
 
 ---
 
-## Member 1 — Core Architecture, Lexer, Runtime & Testing
+## Stage 1 — Core Architecture, Lexer, Runtime & Testing
 
-### Your Files & Directories
+### Files & Directories
 | File/Directory | What it does |
 |------|-------------|
 | **1. Lexer Component** | |
@@ -70,9 +70,9 @@ java -cp out zara.Main samples/program4_loop.zara          # Expected: 1  2  3  
 
 ---
 
-## Member 2 — Parser & AST
+## Stage 2 — Parser & AST
 
-### Your files
+### Files & Responsibilities
 | File | What it does |
 |------|-------------|
 | `Expression.java` | Interface: evaluate(env) → Object |
@@ -110,9 +110,9 @@ java -cp out zara.Main samples/program4_loop.zara          # Expected: 1  2  3  
 
 ---
 
-## Member 3 — Instructions, Interpreter & Testing
+## Stage 3 — Instructions, Interpreter & Testing
 
-### Your files
+### Files & Responsibilities
 | File | What it does |
 |------|-------------|
 | `Instruction.java` | Interface: execute(env) → void |
