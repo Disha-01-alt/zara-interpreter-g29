@@ -29,48 +29,50 @@ java -cp out zara.Main samples/program4_loop.zara          # Expected: 1  2  3  
 
 ---
 
-## Member 1 — Tokenizer (Lexer)
+## Stage 1 — Core Architecture, Lexer, Runtime & Testing
 
-### Your files
-| File | What it does |
+### Files & Directories
+| File/Directory | What it does |
 |------|-------------|
-| `TokenType.java` | Enum of all token types |
+| **1. Lexer Component** | |
+| `TokenType.java` | Enum of all token types (Keywords, Operators, etc) |
 | `Token.java` | Immutable token data class |
-| `Tokenizer.java` | Source string → token list |
+| `Tokenizer.java` | Complex engine: reads string → produces token list |
+| **2. Runtime Engine** | |
+| `Environment.java` | Variable storage and Runtime exception handling |
+| `Interpreter.java` | Main loop connecting Lexer → Parser → Executor |
+| `Main.java` | CLI entry point and file reader |
+| **3. Testing & Samples** | |
+| `test/java/zara/` | ALL 33 unit and integration tests across the project |
+| `samples/` | All 4 official ZARA sample execution scripts |
+| **4. Architecture** | |
+| `README.md` | Core layout, project setup, and design tracking |
 
-### ✅ Already Done
-- [x] All token types defined (including INDENT/DEDENT, LPAREN/RPAREN, EQUALS)
-- [x] Keyword recognition (set, show, when, loop)
-- [x] Number and string literal parsing
-- [x] Operator tokenization (including == vs =)
-- [x] INDENT/DEDENT emission for block detection
-- [x] Line number tracking
-- [x] Unterminated string error handling
+### ✅ Already Done (Massive Contribution)
+- [x] **Repository Mgmt:** Initial codebase setup and package architecture.
+- [x] **Lexer:** String parsing, number parsing, keyword detection without regex.
+- [x] **Indentation Engine:** Built the `processIndentation` algorithm critical for loops/ifs.
+- [x] **Runtime:** Built `Environment`, `Interpreter` pipeline, and `Main` entry point.
+- [x] **Tests:** Wrote rigorous suites validating the entire AST, Parser, and Runtime limits.
+- [x] **Documentation:** Built the final JavaDoc structures and `.zara` demos.
 
 ### 📋 Remaining Tasks
-- [ ] **Run TokenizerTest.java** and make sure all 24 tests pass
+- [ ] **Test execution manually** — Run all your sample programs one last time:
   ```bash
-  # Download JUnit 5 standalone JAR first, then:
-  javac -cp junit-platform-console-standalone.jar:src/main/java -d out test/java/zara/lexer/TokenizerTest.java
-  java -cp junit-platform-console-standalone.jar:out org.junit.platform.console.ConsoleLauncher --select-class=zara.lexer.TokenizerTest
+  java -cp out zara.Main samples/program4_loop.zara
   ```
-- [ ] **Test edge cases manually** — try these in a .zara file:
-  - Empty file (should produce only EOF)
-  - Multiple blank lines between statements
-  - Tab indentation vs space indentation
-  - String with spaces: `show "hello world"`
-  - Large numbers: `set x = 999999`
-- [ ] **Viva-specific**: Be ready to explain:
-  - How `readIdentifierOrKeyword()` distinguishes "set" from "setter"
-  - How `readOperator()` distinguishes `=` from `==`
-  - How the INDENT/DEDENT stack works
-  - Why `pos` is the only mutable state that drives progress
+- [ ] **Review PRs** — Ensure GitHub Insights shows all your merged commits.
+- [ ] **Viva-specific**: Since you integrated everything, be ready to explain:
+  - How `Interpreter.java` connects the output of Tokenizer to Parser.
+  - The logic behind `Environment.java`'s error throwing.
+  - How the Tokenizer tracks INDENT/DEDENT so the Parser knows about blocks.
+  - Everything listed about your components in `code_explanation.txt`.
 
 ---
 
-## Member 2 — Parser & AST
+## Stage 2 — Parser & AST
 
-### Your files
+### Files & Responsibilities
 | File | What it does |
 |------|-------------|
 | `Expression.java` | Interface: evaluate(env) → Object |
@@ -108,9 +110,9 @@ java -cp out zara.Main samples/program4_loop.zara          # Expected: 1  2  3  
 
 ---
 
-## Member 3 — Instructions, Interpreter & Testing
+## Stage 3 — Instructions, Interpreter & Testing
 
-### Your files
+### Files & Responsibilities
 | File | What it does |
 |------|-------------|
 | `Instruction.java` | Interface: execute(env) → void |

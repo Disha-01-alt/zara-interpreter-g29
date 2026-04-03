@@ -3,7 +3,6 @@
 > **Language:** ZARA (Zero-ceremony Arithmetic and Reasoning Assembler)  
 > **Course:** Advanced OOP in Java — Sitare University  
 > **Document Type:** Engineering Design & Architecture (v2)
-
 ---
 
 ## Table of Contents
