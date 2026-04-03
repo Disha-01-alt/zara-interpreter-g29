@@ -1,0 +1,907 @@
+================================================================================
+           ZARA INTERPRETER — COMPLETE CODE EXPLANATION (VIVA GUIDE)
+================================================================================
+                        Group 29 | Sitare University
+                     Advanced OOP in Java — Final Project
+================================================================================
+
+This document explains EVERY file, EVERY class, and EVERY important line of
+code in the ZARA interpreter. Read this carefully before your viva.
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+
+  1. PROJECT OVERVIEW — What does this project do?
+  2. DIRECTORY STRUCTURE — What is where?
+  3. THE PIPELINE — How does code flow from source to output?
+  4. MEMBER 1 FILES — Tokenizer (Lexer)
+     4a. TokenType.java
+     4b. Token.java
+     4c. Tokenizer.java
+  5. MEMBER 2 FILES — Parser & AST
+     5a. Expression.java (interface)
+     5b. NumberNode.java
+     5c. StringNode.java
+     5d. VariableNode.java
+     5e. BinaryOpNode.java
+     5f. ParseException.java
+     5g. Parser.java
+  6. MEMBER 3 FILES — Execution, Interpreter & Testing
+     6a. Instruction.java (interface)
+     6b. AssignInstruction.java
+     6c. PrintInstruction.java
+     6d. IfInstruction.java
+     6e. RepeatInstruction.java
+     6f. BlockInstruction.java
+     6g. Environment.java
+     6h. Interpreter.java
+     6i. Main.java
+  7. COMMON VIVA QUESTIONS & ANSWERS
+  8. KEY DESIGN PATTERNS USED
+
+================================================================================
+1. PROJECT OVERVIEW
+================================================================================
+
+We built a working interpreter for a small scripting language called ZARA.
+When a user writes a .zara file, our program:
+
+  1. READS the source code (a text file)
+  2. BREAKS it into tokens (like splitting a sentence into words)
+  3. PARSES the tokens into a tree structure (understands grammar)
+  4. EXECUTES the instructions (produces output)
+
+This is the same process that Python, Java, and every programming language
+interpreter does — we built a simplified version of it.
+
+ZARA supports:
+  - Variable assignment:   set x = 10
+  - Printing output:       show x
+  - Arithmetic:            x + y * 2  (with correct precedence)
+  - Conditionals:          when score > 50:
+  - Loops:                 loop 4:
+  - Strings:               "Hello from ZARA"
+  - Comparisons:           > < ==
+
+================================================================================
+2. DIRECTORY STRUCTURE
+================================================================================
+
+zara-interpreter-g29/
+│
+├── src/main/java/zara/              ← ALL SOURCE CODE LIVES HERE
+│   │
+│   ├── Main.java                    ← ENTRY POINT — reads file, starts interpreter
+│   │
+│   ├── lexer/                       ← MEMBER 1's WORK (Tokenization)
+│   │   ├── TokenType.java           ← Enum listing all types of tokens
+│   │   ├── Token.java               ← Data class: one piece of source code
+│   │   └── Tokenizer.java           ← Reads source string → produces List<Token>
+│   │
+│   ├── ast/                         ← MEMBER 2's WORK (Expression Tree)
+│   │   ├── Expression.java          ← Interface: evaluate(env) → Object
+│   │   ├── NumberNode.java          ← Holds a number literal (e.g., 42)
+│   │   ├── StringNode.java          ← Holds a string literal (e.g., "hello")
+│   │   ├── VariableNode.java        ← Holds a variable name (e.g., x)
+│   │   └── BinaryOpNode.java        ← Two expressions joined by operator (x + y)
+│   │
+│   ├── parser/                      ← MEMBER 2's WORK (Grammar Analysis)
+│   │   ├── ParseException.java      ← Custom error for parse failures
+│   │   └── Parser.java              ← Reads List<Token> → produces List<Instruction>
+│   │
+│   ├── instruction/                 ← MEMBER 3's WORK (Execution)
+│   │   ├── Instruction.java         ← Interface: execute(env) → void
+│   │   ├── AssignInstruction.java   ← Handles: set x = <expr>
+│   │   ├── PrintInstruction.java    ← Handles: show <expr>
+│   │   ├── IfInstruction.java       ← Handles: when <cond>: <body>
+│   │   ├── RepeatInstruction.java   ← Handles: loop <n>: <body>
+│   │   └── BlockInstruction.java    ← Groups multiple instructions together
+│   │
+│   └── runtime/                     ← MEMBER 3's WORK (Runtime)
+│       ├── Environment.java         ← Variable store: name → value
+│       └── Interpreter.java         ← Orchestrates the 3-stage pipeline
+│
+├── test/java/zara/                  ← ALL TESTS
+│   ├── lexer/TokenizerTest.java
+│   ├── ast/ExpressionEvalTest.java
+│   ├── parser/ParserTest.java
+│   ├── runtime/EnvironmentTest.java
+│   └── instruction/
+│       ├── AssignInstructionTest.java
+│       ├── PrintInstructionTest.java
+│       ├── IfInstructionTest.java
+│       ├── RepeatInstructionTest.java
+│       ├── BlockInstructionTest.java
+│       └── InterpreterIntegrationTest.java
+│
+├── samples/                         ← THE 4 REQUIRED SAMPLE PROGRAMS
+│   ├── program1_arithmetic.zara     ← Output: 16
+│   ├── program2_strings.zara        ← Output: Sitare / Hello from ZARA
+│   ├── program3_conditional.zara    ← Output: Pass
+│   └── program4_loop.zara           ← Output: 1 2 3 4
+│
+├── design.md                        ← Our design document
+└── README.md                        ← Project documentation
+
+Why this structure?
+  - Each package = one stage of the pipeline
+  - lexer/ handles ONLY tokenization — it doesn't know grammar
+  - parser/ + ast/ handle ONLY grammar — they don't execute anything
+  - instruction/ + runtime/ handle ONLY execution
+  - This is SEPARATION OF CONCERNS — bugs in one layer can't break others
+
+================================================================================
+3. THE PIPELINE — How Code Flows
+================================================================================
+
+Let's trace what happens when we run:  set result = x + y * 2
+
+STAGE 1 — TOKENIZER (Member 1)
+  Input:  "set result = x + y * 2"  (raw characters)
+  Output: [SET, IDENTIFIER("result"), ASSIGN, IDENTIFIER("x"),
+           PLUS, IDENTIFIER("y"), STAR, NUMBER("2")]
+
+  The Tokenizer walks character by character:
+  - Sees "s-e-t" → recognizes keyword → emits SET token
+  - Sees "r-e-s-u-l-t" → not a keyword → emits IDENTIFIER("result")
+  - Sees "=" → single = → emits ASSIGN
+  - And so on...
+
+STAGE 2 — PARSER (Member 2)
+  Input:  List<Token> from above
+  Output: AssignInstruction tree:
+
+    AssignInstruction
+      name: "result"
+      expression:
+        BinaryOpNode("+")
+          left:  VariableNode("x")
+          right: BinaryOpNode("*")                ← * is DEEPER = evaluates FIRST
+                   left:  VariableNode("y")
+                   right: NumberNode(2.0)
+
+  The Parser uses THREE levels of precedence:
+  - parseExpression() handles + - > <   (lowest priority)
+  - parseTerm()       handles * /       (higher priority)
+  - parsePrimary()    handles values    (highest — numbers, strings, variables)
+
+  Because parseTerm calls parsePrimary, and parseExpression calls parseTerm,
+  the * operator gets "grabbed" before the + operator. This is how we get
+  correct math order WITHOUT any special logic.
+
+STAGE 3 — EXECUTOR (Member 3)
+  Input:  List<Instruction> + a fresh Environment
+  Output: Side effects (printing, setting variables)
+
+  For our example (assuming x=10, y=3):
+    AssignInstruction.execute(env):
+      1. Evaluate the expression tree:
+         BinaryOpNode("+").evaluate(env)
+           left  → VariableNode("x").evaluate(env) → env.get("x") → 10.0
+           right → BinaryOpNode("*").evaluate(env)
+                     left  → VariableNode("y").evaluate(env) → 3.0
+                     right → NumberNode(2.0).evaluate(env)   → 2.0
+                     result = 3.0 * 2.0 = 6.0
+           result = 10.0 + 6.0 = 16.0
+      2. Store: env.set("result", 16.0)
+
+
+================================================================================
+4. MEMBER 1 FILES — TOKENIZER (LEXER)
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+4a. TokenType.java — The vocabulary of ZARA
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/lexer/TokenType.java
+
+This is an ENUM — it lists every possible kind of token in ZARA.
+Think of it as the dictionary of all "word types" our language understands.
+
+  NUMBER      → numeric literals: 10, 3, 85, 3.14
+  STRING      → text in quotes: "Sitare", "Hello from ZARA"
+  IDENTIFIER  → variable names: x, y, result, score, name
+  SET         → the keyword "set"
+  SHOW        → the keyword "show"
+  WHEN        → the keyword "when"
+  LOOP        → the keyword "loop"
+  PLUS        → +
+  MINUS       → -
+  STAR        → *
+  SLASH       → /
+  LPAREN      → (
+  RPAREN      → )
+  ASSIGN      → = (single equals — assignment)
+  EQUALS      → == (double equals — comparison)
+  GREATER     → >
+  LESS        → <
+  COLON       → : (ends when/loop header)
+  NEWLINE     → \n (line separator)
+  INDENT      → emitted when indentation increases (block start)
+  DEDENT      → emitted when indentation decreases (block end)
+  EOF         → end of file — always the last token
+
+WHY DO KEYWORDS HAVE THEIR OWN TYPES?
+  If "set" were just an IDENTIFIER, the Parser would need to do:
+    if (token.getValue().equals("set"))  ← fragile string comparison
+  With TokenType.SET, we do:
+    if (token.getType() == TokenType.SET)  ← type-safe, can't misspell
+
+WHY INDENT/DEDENT?
+  ZARA uses indentation for blocks (like Python). The Tokenizer emits
+  INDENT when a new block starts and DEDENT when it ends. This way the
+  Parser doesn't need to look at raw whitespace — it just checks for these
+  tokens.
+
+────────────────────────────────────────────────────────────────────────────────
+4b. Token.java — One piece of source code
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/lexer/Token.java
+
+A Token is an IMMUTABLE value object with exactly three fields:
+
+  private final TokenType type;   ← what kind of token (from the enum)
+  private final String    value;  ← the raw text from source ("set", "42", "+")
+  private final int       line;   ← which line it came from (1-based)
+
+IMPORTANT DESIGN DECISIONS:
+
+  1. Class is "public final" — you CANNOT subclass it.
+     Why? Tokens are pure data. There's no meaningful subtype of "a token".
+
+  2. All fields are "private final" + no setters = IMMUTABLE.
+     Why? A token is created once and read many times. If someone could
+     change a token after creating it, you'd get bugs where two different
+     parts of the code disagree about what a token says.
+
+  3. toString() returns readable format: Token(NUMBER, "42", line=3)
+     Why? Makes debugging much easier. When something goes wrong, you can
+     print the token list and immediately see what the Tokenizer produced.
+
+  4. Line number is stored even if we don't always use it.
+     Why? It's cheap (one int per token) and makes error messages possible.
+     "Line 5: expected ':' after condition" is helpful.
+     "NullPointerException at Parser.java:83" is useless.
+
+────────────────────────────────────────────────────────────────────────────────
+4c. Tokenizer.java — The character-by-character scanner
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/lexer/Tokenizer.java
+
+This is the biggest file in Member 1's work. It reads the raw source String
+character by character and produces a List<Token>.
+
+CONSTRUCTOR:
+  public Tokenizer(String source)
+  - Stores the source string (never changes)
+  - Sets pos = 0 (current position in the string)
+  - Sets line = 1 (current line number, 1-based)
+  - Initializes indentStack with [0] (top-level = no indentation)
+
+  "pos" is THE ONLY mutable state that drives progress. The Tokenizer is
+  completely determined by "source" (immutable) and "pos" (monotonically
+  increasing). This makes it easy to understand and debug.
+
+STATE:
+  private final String source;          ← the complete source code
+  private int pos;                      ← index of next character to read
+  private int line;                     ← current 1-based line number
+  private final Deque<Integer> indentStack;  ← tracks indentation depth
+
+THE MAIN METHOD — tokenize():
+  This is a two-level loop:
+  OUTER LOOP: processes each line
+    1. processIndentation(tokens) — check if indent changed
+    2. INNER LOOP: read tokens until \n or end of source
+       - Skip spaces/tabs
+       - If " → readString()
+       - If digit → readNumber()
+       - If letter/_ → readIdentifierOrKeyword()
+       - Else → readOperator()
+    3. Consume the \n, emit NEWLINE token, increment line
+
+  After the loop:
+    - Emit DEDENT for any open blocks
+    - Emit one final EOF token
+
+processIndentation(tokens):
+  Called at the START of every line. Measures leading whitespace.
+  - Blank lines → skip entirely (no indent change)
+  - If indent > current level → push new level, emit INDENT
+  - If indent < current level → pop levels, emit DEDENT for each pop
+  - If indent == current level → nothing to do
+
+  Example:
+    when score > 50:          ← line at indent 0
+        show "Pass"           ← indent increases to 4 → emit INDENT
+    show "Done"               ← indent decreases to 0 → emit DEDENT
+
+readNumber():
+  Reads consecutive digits and dots. Example: "3.14" → NUMBER("3.14")
+  Starts at current pos, advances until non-digit/non-dot character.
+
+readString():
+  Reads text between double quotes. The opening " has been peeked.
+  - Consumes opening "
+  - Reads until closing " (throws error if never found or hits \n)
+  - Returns STRING token with value EXCLUDING quotes
+  Example: source text "Pass" → token value Pass (no quotes)
+
+readIdentifierOrKeyword():
+  Reads consecutive letters/digits/underscores.
+  After reading the full word, checks if it's a keyword:
+  - "set" → SET, "show" → SHOW, "when" → WHEN, "loop" → LOOP
+  - Everything else → IDENTIFIER
+  This approach can correctly tell "setter" (IDENTIFIER) from "set" (SET).
+
+readOperator():
+  Reads one-character operators (+, -, *, /, >, <, :, (, ))
+  Special case for '=':
+    - Peek at next character
+    - If it's also '=' → consume both, emit EQUALS ("==")
+    - Otherwise → emit ASSIGN ("=")
+  Unknown characters throw RuntimeException with line number.
+
+Helper methods:
+  peek()    → returns character at pos WITHOUT advancing
+  advance() → returns character at pos AND advances pos by 1
+  skipWhitespace() → skips spaces and tabs (NOT newlines)
+
+
+================================================================================
+5. MEMBER 2 FILES — PARSER & AST
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+5a. Expression.java — The Expression interface
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/ast/Expression.java
+
+  public interface Expression {
+      Object evaluate(Environment env);
+  }
+
+This is the CONTRACT that every expression node must follow.
+Every node in the expression tree can evaluate itself and return a value.
+
+WHY Object AND NOT Double?
+  ZARA variables can hold numbers OR strings. At compile time we don't
+  know which one. Object is the honest representation — the actual type
+  is determined at runtime. The alternatives are:
+  - Double → can't hold strings
+  - Generics (Expression<T>) → becomes unwieldy because BinaryOpNode
+    doesn't know its children's types at compile time
+
+WHY IS env A PARAMETER AND NOT STORED IN THE NODE?
+  Because Expression nodes are part of the SYNTAX tree — they represent
+  the structure of the code. The Environment is RUNTIME state — it changes
+  as the program runs. Mixing these two concerns would mean you can't
+  reuse the same tree with different variable values.
+
+────────────────────────────────────────────────────────────────────────────────
+5b. NumberNode.java — Literal number
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/ast/NumberNode.java
+
+  private final double value;
+
+  - Constructor: stores the number
+  - evaluate(env): returns the stored value (ignores env — numbers are constants)
+
+WHY double AND NOT int?
+  All ZARA numbers are stored as double for simplicity. When printing,
+  PrintInstruction checks if it's a whole number (16.0 → prints "16").
+
+────────────────────────────────────────────────────────────────────────────────
+5c. StringNode.java — Literal string
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/ast/StringNode.java
+
+  private final String value;
+
+  - Constructor: stores the string (already without quotes — Tokenizer strips them)
+  - evaluate(env): returns the stored string (ignores env — strings are constants)
+
+────────────────────────────────────────────────────────────────────────────────
+5d. VariableNode.java — Variable reference
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/ast/VariableNode.java
+
+  private final String name;
+
+  - Constructor: stores the variable name (e.g., "x", "score")
+  - evaluate(env): calls env.get(name) — DELEGATES entirely to Environment
+  - getName(): returns the variable name (used by the Parser)
+
+  This node does NOT contain any logic about what a variable is — it just
+  asks the Environment. This is DEPENDENCY INVERSION.
+
+────────────────────────────────────────────────────────────────────────────────
+5e. BinaryOpNode.java — Binary operation
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/ast/BinaryOpNode.java
+
+  private final Expression left;       ← left operand (any Expression)
+  private final String     operator;   ← "+", "-", "*", "/", ">", "<", "=="
+  private final Expression right;      ← right operand (any Expression)
+
+  Constructor: BinaryOpNode(Expression left, String operator, Expression right)
+  The class is "final" — no subclasses allowed.
+
+  evaluate(env):
+    1. Evaluate left child  → leftVal
+    2. Evaluate right child → rightVal
+    3. Apply operator and return result
+
+  Three cases handled:
+    A) BOTH ARE Double:
+       +  → addition
+       -  → subtraction
+       *  → multiplication
+       /  → division (throws error if dividing by zero)
+       >  → greater than (returns Boolean)
+       <  → less than (returns Boolean)
+       == → equality (returns Boolean)
+
+    B) AT LEAST ONE IS String AND operator is "+":
+       → String concatenation
+       Example: "Value: " + 10 → "Value: 10"
+       Numbers are converted to string using stringify() helper
+
+    C) BOTH ARE String AND operator is "==":
+       → String equality using .equals()
+       Example: "hi" == "hi" → true
+
+    D) Otherwise → RuntimeException (invalid operands)
+
+  WHY DOES left AND right HOLD Expression (NOT concrete types)?
+  This is the COMPOSITE PATTERN. The right child of a "+" can itself be
+  a "*" node. This is exactly how x + y * 2 gets the correct tree shape.
+  The node doesn't care what its children are — any Expression works.
+
+  stringify() helper:
+    Converts a value to display string. Whole-number doubles like 10.0
+    are printed as "10" (not "10.0") for cleaner concatenation.
+
+────────────────────────────────────────────────────────────────────────────────
+5f. ParseException.java — Custom parse error
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/parser/ParseException.java
+
+  extends RuntimeException
+  private final int line;
+
+  - Stores both a message AND the line number where the error occurred
+  - getMessage() returns the error text
+  - getLine() returns the line number
+
+  WHY A CUSTOM EXCEPTION?
+  "NullPointerException at Parser.java:83" is useless.
+  "Line 4: expected ':' after condition" is helpful.
+  ParseException lets us include line numbers in every error.
+
+────────────────────────────────────────────────────────────────────────────────
+5g. Parser.java — Grammar analysis (MOST COMPLEX FILE)
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/parser/Parser.java
+
+The Parser reads List<Token> from the Tokenizer and builds List<Instruction>.
+It is the most algorithmically complex component.
+
+STATE:
+  private final List<Token> tokens;    ← the full token list
+  private int pos;                     ← current index into token list
+
+HELPER METHODS:
+  current()  → returns token at pos WITHOUT advancing
+  consume()  → returns token at pos AND advances pos by 1
+  expect(TokenType) → if current token matches type, consume it;
+                      otherwise throw ParseException with line number
+
+  consumeNewlineOrEOF() → consumes NEWLINE, or accepts EOF (last line
+                           may not have trailing newline), or throws error
+
+THE MAIN METHOD — parse():
+  Loop while current token is not EOF:
+    - If NEWLINE → skip (blank line)
+    - Otherwise → call parseStatement() and add result to list
+  Return the completed list of instructions.
+
+parseStatement():
+  Looks at current token type and dispatches:
+    SET  → parseAssignment()   → AssignInstruction
+    SHOW → parsePrint()        → PrintInstruction
+    WHEN → parseConditional()  → IfInstruction
+    LOOP → parseLoop()         → RepeatInstruction
+    else → ParseException ("unexpected token")
+
+parseAssignment():
+  Parses: set <identifier> = <expression> NEWLINE
+  1. expect(SET)           → consume "set"
+  2. expect(IDENTIFIER)    → get variable name
+  3. expect(ASSIGN)        → consume "="
+  4. parseExpression()     → get the value expression
+  5. consumeNewlineOrEOF() → consume line ending
+  6. Return new AssignInstruction(name, expression)
+
+parsePrint():
+  Parses: show <expression> NEWLINE
+  1. expect(SHOW)          → consume "show"
+  2. parseExpression()     → get the expression to print
+  3. consumeNewlineOrEOF()
+  4. Return new PrintInstruction(expression)
+
+parseConditional():
+  Parses: when <expression> : NEWLINE INDENT <body> DEDENT
+  1. expect(WHEN)          → consume "when"
+  2. parseExpression()     → get the condition (e.g., score > 50)
+  3. expect(COLON)         → consume ":"
+  4. expect(NEWLINE)       → consume line ending
+  5. parseBlock()          → get the indented body
+  6. Return new IfInstruction(condition, body)
+
+parseLoop():
+  Parses: loop <number> : NEWLINE INDENT <body> DEDENT
+  1. expect(LOOP)          → consume "loop"
+  2. expect(NUMBER)        → get the count (literal integer only!)
+  3. expect(COLON)         → consume ":"
+  4. expect(NEWLINE)       → consume line ending
+  5. parseBlock()          → get the indented body
+  6. Return new RepeatInstruction(count, body)
+
+  NOTE: loop count is a LITERAL NUMBER, not an expression.
+  "loop 4:" is valid. "loop x:" is NOT valid.
+
+parseBlock():
+  Parses an indented block: INDENT statement+ DEDENT
+  1. expect(INDENT)        → block must start with INDENT
+  2. Loop: while not DEDENT and not EOF:
+     - Skip NEWLINEs (blank lines in block)
+     - parseStatement() → add to body list
+  3. consume DEDENT
+  4. If body is empty → throw error
+
+  WHY INDENT/DEDENT INSTEAD OF CHECKING RAW WHITESPACE?
+  The Tokenizer already did the hard work of measuring indentation.
+  The Parser just looks for INDENT to start a block and DEDENT to end it.
+  This is clean separation of concerns — the Parser never touches
+  raw whitespace.
+
+  NESTING WORKS AUTOMATICALLY: since parseStatement() can call
+  parseConditional() or parseLoop(), which call parseBlock(), which calls
+  parseStatement() again... blocks can nest to any depth.
+
+EXPRESSION PARSING — THE PRECEDENCE CHAIN:
+
+  This is the most important algorithm in the Parser.
+  It ensures * and / are evaluated before + and -.
+
+  THREE LEVELS:
+
+  parseExpression() — Level 1 (LOWEST precedence): + - > < ==
+    1. Call parseTerm() to get left operand
+    2. While current token is +, -, >, <, or ==:
+       a. Consume the operator
+       b. Call parseTerm() for right operand
+       c. Wrap in BinaryOpNode(left, operator, right)
+       d. This new node becomes the new "left"
+    3. Return left
+
+  parseTerm() — Level 2 (HIGHER precedence): * /
+    1. Call parsePrimary() to get left operand
+    2. While current token is * or /:
+       a. Consume the operator
+       b. Call parsePrimary() for right operand
+       c. Wrap in BinaryOpNode(left, operator, right)
+    3. Return left
+
+  parsePrimary() — Level 3 (HIGHEST / base case): single values
+    - NUMBER     → NumberNode(double value)
+    - STRING     → StringNode(text)
+    - IDENTIFIER → VariableNode(name)
+    - LPAREN     → ( parseExpression() RPAREN   ← parentheses!
+
+  WHY THIS WORKS FOR PRECEDENCE — walkthrough of "x + y * 2":
+    1. parseExpression() calls parseTerm()
+    2. parseTerm() calls parsePrimary() → returns VariableNode("x")
+    3. parseTerm() sees no * or / → returns VariableNode("x")
+    4. parseExpression() sees + → consumes it
+    5. parseExpression() calls parseTerm() for right side
+    6. parseTerm() calls parsePrimary() → returns VariableNode("y")
+    7. parseTerm() sees * → consumes it
+    8. parseTerm() calls parsePrimary() → returns NumberNode(2)
+    9. parseTerm() wraps: BinaryOpNode("*", y, 2) → returns this
+   10. parseExpression() wraps: BinaryOpNode("+", x, BinaryOpNode("*", y, 2))
+
+   Result: * sits DEEPER in the tree → evaluates FIRST. Correct!
+
+
+================================================================================
+6. MEMBER 3 FILES — EXECUTION, INTERPRETER & TESTING
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+6a. Instruction.java — The Instruction interface
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/instruction/Instruction.java
+
+  public interface Instruction {
+      void execute(Environment env);
+  }
+
+  WHY void?
+  Instructions produce EFFECTS, not values.
+  - Assignment changes the Environment
+  - Print writes to stdout
+  - Conditional may or may not execute its body
+  None of these need to return anything.
+
+  This is the COMMAND PATTERN — each instruction is an object that knows
+  how to execute itself. The executor loop just calls .execute(env) on
+  each one. It never needs to know WHICH kind of instruction it holds.
+
+────────────────────────────────────────────────────────────────────────────────
+6b. AssignInstruction.java — set x = <expr>
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/instruction/AssignInstruction.java
+
+  private final String variableName;     ← "x", "result", etc.
+  private final Expression expression;   ← the value expression
+
+  execute(env):
+    1. Evaluate the expression: expression.evaluate(env) → some value
+    2. Store it: env.set(variableName, value)
+
+  That's it! Two steps. The expression tree handles all the arithmetic.
+
+────────────────────────────────────────────────────────────────────────────────
+6c. PrintInstruction.java — show <expr>
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/instruction/PrintInstruction.java
+
+  private final Expression expression;
+
+  execute(env):
+    1. Evaluate: result = expression.evaluate(env)
+    2. If result is a Double AND is a whole number (16.0):
+       → print as integer: System.out.println((int) d)  → prints "16"
+    3. If result is a Double but NOT whole (3.14):
+       → print as decimal: System.out.println(d)  → prints "3.14"
+    4. Otherwise (String, etc.):
+       → print directly: System.out.println(result)
+
+  WHY THE WHOLE NUMBER CHECK?
+  The project spec says "16.0 should print as 16, not 16.0".
+  ZARA users expect whole numbers to look like integers.
+  Math.floor(d) == d checks if d has no fractional part.
+
+────────────────────────────────────────────────────────────────────────────────
+6d. IfInstruction.java — when <cond>: <body>
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/instruction/IfInstruction.java
+
+  private final Expression condition;      ← e.g., score > 50
+  private final List<Instruction> body;    ← the indented block
+
+  execute(env):
+    1. Evaluate condition: result = condition.evaluate(env)
+    2. If result is Boolean AND is true:
+       → Execute every instruction in body, in order
+    3. Otherwise: do nothing (skip the body)
+
+  WHY List<Instruction> FOR THE BODY?
+  This means an IfInstruction body can contain another IfInstruction
+  or a RepeatInstruction. NESTING WORKS AUTOMATICALLY — no special
+  code needed. The recursive structure handles arbitrary depth.
+
+────────────────────────────────────────────────────────────────────────────────
+6e. RepeatInstruction.java — loop <n>: <body>
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/instruction/RepeatInstruction.java
+
+  private final int count;                 ← how many times to repeat
+  private final List<Instruction> body;    ← the indented block
+
+  execute(env):
+    Outer loop: for (int i = 0; i < count; i++)
+      Inner loop: for each instruction in body → execute it
+
+  NOTE: count is an int, NOT an Expression. This is because the loop
+  count is determined at PARSE TIME from a literal number, not at runtime.
+
+────────────────────────────────────────────────────────────────────────────────
+6f. BlockInstruction.java — Sequential instruction group
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/instruction/BlockInstruction.java
+
+  private final List<Instruction> instructions;
+
+  execute(env):
+    for each instruction → execute it
+
+  This is a simple utility class that groups multiple instructions.
+  Used internally to represent a sequence of instructions as a single
+  Instruction object.
+
+────────────────────────────────────────────────────────────────────────────────
+6g. Environment.java — Variable store
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/runtime/Environment.java
+
+  private final Map<String, Object> variables = new HashMap<>();
+
+  set(name, value): stores or updates a variable
+    → variables.put(name, value)
+
+  get(name): retrieves a variable's value
+    → If variable doesn't exist: throw RuntimeException("Variable not defined: x")
+    → Otherwise: return the value
+
+  WHY A DEDICATED CLASS INSTEAD OF JUST A MAP?
+  A raw Map<String, Object> would return null for undefined variables.
+  Null would silently propagate through the code, causing bugs far from
+  the actual problem. Environment.get() throws immediately with a clear
+  message. The error handling happens in ONE PLACE.
+
+  WHY HashMap?
+  Variable lookup and assignment happen on every expression evaluation.
+  HashMap gives O(1) average-case for both operations. No ordering is
+  needed, so TreeMap or LinkedHashMap would be unnecessarily slower.
+
+  WHY NOT A SINGLETON?
+  A singleton is global mutable state. It would:
+  - Make isolated testing impossible (tests would share state)
+  - Prevent running two programs concurrently
+  - Make adding scoped variables very difficult
+  Instead, we pass env as a parameter — making the dependency explicit.
+
+────────────────────────────────────────────────────────────────────────────────
+6h. Interpreter.java — Pipeline orchestrator
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/runtime/Interpreter.java
+
+  run(String sourceCode):
+    try {
+      Stage 1: Tokenizer tokenizer = new Tokenizer(sourceCode)
+               List<Token> tokens = tokenizer.tokenize()
+
+      Stage 2: Parser parser = new Parser(tokens)
+               List<Instruction> instructions = parser.parse()
+
+      Stage 3: Environment env = new Environment()
+               for each instruction → instruction.execute(env)
+    } catch (Exception e) {
+      System.err.println("Error: " + e.getMessage())
+    }
+
+  This class is just a PIPELINE CONNECTOR. It has NO parsing logic,
+  NO evaluation logic, NO arithmetic. If it did, something went wrong.
+
+  The try/catch at the top catches ALL errors (parse errors, runtime
+  errors) and prints them cleanly. No other class needs catch blocks.
+
+────────────────────────────────────────────────────────────────────────────────
+6i. Main.java — CLI entry point
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/main/java/zara/Main.java
+
+  main(String[] args):
+    1. Check that a file path was provided as argument
+    2. Read the entire file into a String using Files.readString()
+    3. Create a new Interpreter and call .run(sourceCode)
+    4. If file can't be read → print error and exit
+
+  This is the program you run from the command line:
+    java zara.Main samples/program1_arithmetic.zara
+
+
+================================================================================
+7. COMMON VIVA QUESTIONS & ANSWERS
+================================================================================
+
+Q: "Walk me through what happens step by step when your interpreter runs
+    one line of code."
+A: Let's trace "set x = 10":
+   1. Tokenizer reads "s-e-t" → sees it matches keyword → emits SET token
+   2. Tokenizer reads "x" → not a keyword → emits IDENTIFIER("x")
+   3. Tokenizer reads "=" → single = → emits ASSIGN
+   4. Tokenizer reads "1-0" → all digits → emits NUMBER("10")
+   5. Parser sees SET → calls parseAssignment()
+   6. parseAssignment expects: SET IDENTIFIER ASSIGN expression NEWLINE
+   7. It calls parseExpression → parseTerm → parsePrimary → NumberNode(10.0)
+   8. Creates AssignInstruction("x", NumberNode(10.0))
+   9. Executor calls instruction.execute(env)
+   10. AssignInstruction evaluates NumberNode(10.0) → returns 10.0
+   11. Stores env.set("x", 10.0)
+
+Q: "Where exactly in your code does operator precedence get handled?"
+A: In Parser.java, the three-level call chain:
+   - parseExpression() handles + and - (called first, lowest priority)
+   - parseTerm() handles * and / (called by parseExpression, higher priority)
+   - parsePrimary() handles values (called by parseTerm, highest priority)
+   Because parseTerm eagerly consumes * and / before returning to
+   parseExpression, the tree shape automatically puts * deeper than +.
+   No special flags or priority numbers needed.
+
+Q: "What is the Environment class for? What would break if you removed it?"
+A: Environment is the runtime variable store — a Map from variable names
+   to their current values. If you removed it:
+   - Variables couldn't be stored or retrieved
+   - set x = 10 would have nowhere to put the value
+   - show x would have nothing to look up
+   - The entire "state" of a running program would be lost
+
+Q: "If you wanted to support a new operator (like %), what would you change?"
+A: Three changes:
+   1. Add PERCENT to TokenType enum
+   2. In Tokenizer.readOperator(), add case '%' → PERCENT
+   3. In BinaryOpNode.evaluate(), add case "%" → l % r
+   That's it. No changes to Parser (% has same precedence as * and /,
+   parseTerm already handles those). No changes to instructions.
+
+Q: "How do blocks/indentation work?"
+A: The Tokenizer is responsible. It tracks an indentation stack.
+   When the indent level increases → emits INDENT token.
+   When it decreases → emits DEDENT token(s).
+   The Parser simply expects INDENT to start a block and DEDENT to end it.
+   It never looks at raw whitespace.
+
+Q: "What design patterns did you use?"
+A: See section 8 below.
+
+Q: "What happens with an undefined variable?"
+A: Environment.get() throws RuntimeException("Variable not defined: x").
+   This error propagates up to Interpreter.run() where the top-level
+   catch block prints it cleanly.
+
+
+================================================================================
+8. KEY DESIGN PATTERNS USED
+================================================================================
+
+1. COMPOSITE PATTERN — Expression Tree
+   BinaryOpNode holds two Expression children. Those children can be
+   other BinaryOpNodes. The tree composes arbitrarily deep.
+   Example: x + y * (z - 2) creates a tree 3 levels deep.
+
+2. COMMAND PATTERN — Instructions
+   Every instruction is an object that knows how to execute itself.
+   The executor loop calls .execute(env) and the object handles the rest.
+   Adding a new instruction type requires NO changes to the executor.
+
+3. PIPELINE PATTERN — Three Isolated Stages
+   Tokenizer → Parser → Executor. Each stage consumes well-typed input
+   and produces well-typed output. Each can be tested in isolation.
+
+4. DEPENDENCY INVERSION — Interfaces
+   High-level code (Interpreter, executor loop) depends on the Instruction
+   INTERFACE, not on AssignInstruction or PrintInstruction. The executor
+   just calls .execute(env) — it never checks instanceof.
+
+5. STRATEGY PATTERN — TokenType dispatching
+   The Parser's parseStatement() method dispatches based on token type.
+   Each token type maps to a specific parsing strategy.
+
+================================================================================
+                        END OF VIVA PREPARATION GUIDE
+================================================================================
