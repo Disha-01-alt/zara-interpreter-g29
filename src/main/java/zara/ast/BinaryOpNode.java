@@ -93,6 +93,11 @@ public final class BinaryOpNode implements Expression {
         return String.valueOf(value);
     }
 
+    @Override
+    public String toString() {
+        return "BinaryOpNode(" + operator + ")";
+    }
+
     private String typeName(Object value) {
         if (value instanceof Double)  return "Number";
         if (value instanceof String)  return "String";
