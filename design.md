@@ -523,9 +523,33 @@ This class is a pipeline orchestrator. Its only job is to connect the three stag
 
 ---
 
-## 6. Design Principles Applied
+## 6. Design Principles Applied (SOLID Overview)
 
-### Composite Pattern — Expression Tree
+This project strictly adheres to major Object-Oriented design principles to assure a scalable and decoupled architecture.
+
+### Single Responsibility Principle (SRP)
+Every class has exactly one job:
+- `Tokenizer` ONLY reads strings to produce tokens (no grammar checking).
+- `Environment` ONLY stores variables and handles missing state errors.
+- `BinaryOpNode` ONLY evaluates math (no side effects like printing).
+
+### Open/Closed Principle (OCP)
+The architecture is open for extension but closed for modification. Adding a `while` loop or a `function` definition does not require modifying `AssignInstruction` or `IfInstruction` — new instructions are simply added as new horizontal sibling classes. *(Note: One conscious concession to OCP is made in Tokenizer/Parser grammar definition to avoid excessive factory bloat).*
+
+### Liskov Substitution Principle (LSP)
+Any concrete implementation of an interface can seamlessly replace any other. For example, `AssignInstruction` expects an `Expression`. It does not matter if that expression is a primitive `NumberNode` or a deeply nested `BinaryOpNode`; because both correctly honor the `evaluate()` contract, they execute flawlessly.
+
+### Interface Segregation Principle (ISP)
+Interfaces are kept hyper-focused and minimal to prevent bloated "god interfaces":
+- `Expression` demands only `Object evaluate(Environment env)`.
+- `Instruction` demands only `void execute(Environment env)`.
+
+### Dependency Inversion Principle (DIP)
+High-level policy modules (`Interpreter.java`) do not depend on low-level implementation details (`AssignInstruction.java`). They depend strictly on the `Instruction` abstraction. 
+
+### Implementation Patterns:
+
+#### Composite Pattern — Expression Tree
 
 `BinaryOpNode` holds two `Expression` children. Those children can themselves be `BinaryOpNode` instances. The tree composes arbitrarily deep. No special code handles nesting — it emerges from the structure.
 
@@ -579,20 +603,22 @@ Variable lookup and assignment happen on every expression evaluation. O(1) avera
 
 ---
 
-## 8. Error Handling Strategy
+## 8. Error Handling Strategy (Fail-Fast Approach)
+
+A core tenet of this interpreter is to **fail-fast**. The architecture strictly refuses to fail silently or propagate `null` values downstream. If an illegal state is encountered, a `RuntimeException` is immediately triggered with clear, localized messages.
 
 ### Two categories of error
 
-**Parse errors** — source code is structurally invalid (e.g., missing colon after `when`, unrecognized character). Should carry the line number from the relevant token.
+**Parse & Lexical errors** — source code is structurally invalid (e.g., missing colon after `when`, unterminated strings, indentation mismatches). These carry the line number exactly where execution failed.
 
-**Runtime errors** — valid syntax but illegal at execution time (e.g., accessing an undefined variable, applying arithmetic to a string).
+**Runtime errors** — valid syntax but illegal at execution time (e.g., accessing an undefined variable, applying math to a string, division-by-zero).
 
 ### Where errors originate
 
-- `Environment.get()` — undefined variable access
-- `BinaryOpNode.evaluate()` — type mismatch (e.g., string where number expected)
-- `Parser.expect()` — token type mismatch during parsing
-- `Parser.parsePrimary()` — unexpected token where a value was expected
+- `Environment.get()` — undefined variable access throws explicitly.
+- `BinaryOpNode.evaluate()` — type mismatch or division-by-zero throws explicitly.
+- `Parser.expect()` — token type mismatch during parsing.
+- `Tokenizer.readString()` / `processIndentation()` — unterminated strings and invalid blank spacing.
 
 ### Where errors are handled
 
