@@ -1,7 +1,8 @@
 package zara.ast;
+
 import zara.runtime.Environment;
 
-public final class VariableNode implements Expression {
+public class VariableNode implements Expression {
 
     private final String name;
 
@@ -16,10 +17,5 @@ public final class VariableNode implements Expression {
     @Override
     public Object evaluate(Environment env) {
         return env.get(name);
-    }
-
-    @Override
-    public String toString() {
-        return "VariableNode(" + name + ")";
     }
 }

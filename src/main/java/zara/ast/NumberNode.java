@@ -1,7 +1,8 @@
 package zara.ast;
+
 import zara.runtime.Environment;
 
-public final class NumberNode implements Expression {
+public class NumberNode implements Expression {
 
     private final double value;
 
@@ -12,10 +13,5 @@ public final class NumberNode implements Expression {
     @Override
     public Object evaluate(Environment env) {
         return value;
-    }
-
-    @Override
-    public String toString() {
-        return "NumberNode(" + value + ")";
     }
 }

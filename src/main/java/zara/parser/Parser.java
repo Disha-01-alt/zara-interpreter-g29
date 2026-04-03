@@ -1,9 +1,8 @@
-package main.java.zara.parser;
-
-import main.java.zara.lexer.Token;
-import main.java.zara.lexer.TokenType;
-import main.java.zara.ast.*;
-import main.java.zara.instruction.*;
+package zara.parser;
+import zara.parser.ParseException;
+import zara.lexer.*;
+import zara.ast.*;
+import zara.instruction.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -205,8 +204,113 @@ public class Parser {
         return left;
     }
 
+    // Level 2 — higher precedence: *, /
+
+    private Expression parseTerm() {
+        Expression left = parsePrimary();
+
+        while (true) {
+            TokenType type = current().getType();
+            if (type == TokenType.STAR || type == TokenType.SLASH) {
+                String operator = consume().getValue();
+                Expression right = parsePrimary();
+                left = new BinaryOpNode(operator, left, right);
+            } else {
+                break;
+            }
+        }
+
+        return left;
+    }
+
+    // Level 3 — highest precedence / base case.
+        // NUMBER     → NumberNode
+       // STRING     → StringNode
+      // IDENTIFIER → VariableNode
 
 
+    private Expression parsePrimary() {
+        Token tok = current();
 
+        switch (tok.getType()) {
+
+            case NUMBER: {
+                consume();
+                double value;
+                try {
+                    value = Double.parseDouble(tok.getValue());
+                } catch (NumberFormatException e) {
+                    throw new ParseException(
+                            "Line " + tok.getLine() + ": invalid number literal '" + tok.getValue() + "'.",
+                            tok.getLine()
+                    );
+                }
+                return new NumberNode(value);
+            }
+
+            case STRING: {
+                consume();
+                // Value already has quotes stripped by the Tokenizer
+                return new StringNode(tok.getValue());
+            }
+
+            case IDENTIFIER: {
+                consume();
+                return new VariableNode(tok.getValue());
+            }
+
+            default:
+                throw new ParseException(
+                        "Line " + tok.getLine() + ": expected a value (number, string, or variable) "
+                                + "but found '" + tok.getValue() + "' (" + tok.getType() + ").",
+                        tok.getLine()
+                );
+        }
+    }
+
+    // Helper methods
+
+    // Returns the current token without advancing pos.
+    private Token current() {
+        return tokens.get(pos);
+    }
+
+    // Returns the current token and advances pos by one.
+    private Token consume() {
+        return tokens.get(pos++);
+    }
+
+    // Consumes the current token if it matches type.
+    //@throws ParseException with line number if the match fails.
+
+    private Token expect(TokenType expected) {
+        Token tok = current();
+        if (tok.getType() != expected) {
+            throw new ParseException(
+                    "Line " + tok.getLine() + ": expected " + expected
+                            + " but found '" + tok.getValue() + "' (" + tok.getType() + ").",
+                    tok.getLine()
+            );
+        }
+        return consume();
+    }
+
+    // Consumes a NEWLINE or EOF at the end of a statement.
+
+    private void consumeNewlineOrEOF() {
+        TokenType type = current().getType();
+        if (type == TokenType.NEWLINE) {
+            consume();
+        } else if(type == TokenType.EOF) {
+            // Acceptable — last statement in source has no trailing newline
+        } else {
+            Token tok = current();
+            throw new ParseException(
+                    "Line " + tok.getLine() + ": expected end of line after statement, "
+                            + "but found '" + tok.getValue() + "' (" + tok.getType() + ").",
+                    tok.getLine()
+            );
+        }
+    }
 
 }
