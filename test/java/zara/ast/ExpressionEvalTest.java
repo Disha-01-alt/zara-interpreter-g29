@@ -60,8 +60,9 @@ class ExpressionEvalTest {
 
     @Test
     void testAddition() {
-        Expression expr = new BinaryOpNode("+",
+        Expression expr = new BinaryOpNode(
                 new NumberNode(3),
+                "+",
                 new NumberNode(4));
 
         assertEquals(7.0, expr.evaluate(new Environment()));
@@ -69,8 +70,9 @@ class ExpressionEvalTest {
 
     @Test
     void testSubtraction() {
-        Expression expr = new BinaryOpNode("-",
+        Expression expr = new BinaryOpNode(
                 new NumberNode(10),
+                "-",
                 new NumberNode(3));
 
         assertEquals(7.0, expr.evaluate(new Environment()));
@@ -78,8 +80,9 @@ class ExpressionEvalTest {
 
     @Test
     void testMultiplication() {
-        Expression expr = new BinaryOpNode("*",
+        Expression expr = new BinaryOpNode(
                 new NumberNode(3),
+                "*",
                 new NumberNode(4));
 
         assertEquals(12.0, expr.evaluate(new Environment()));
@@ -87,8 +90,9 @@ class ExpressionEvalTest {
 
     @Test
     void testDivision() {
-        Expression expr = new BinaryOpNode("/",
+        Expression expr = new BinaryOpNode(
                 new NumberNode(10),
+                "/",
                 new NumberNode(2));
 
         assertEquals(5.0, expr.evaluate(new Environment()));
@@ -96,8 +100,9 @@ class ExpressionEvalTest {
 
     @Test
     void testDivisionByZero() {
-        Expression expr = new BinaryOpNode("/",
+        Expression expr = new BinaryOpNode(
                 new NumberNode(10),
+                "/",
                 new NumberNode(0));
 
         assertThrows(RuntimeException.class, () -> expr.evaluate(new Environment()));
@@ -109,8 +114,9 @@ class ExpressionEvalTest {
 
     @Test
     void testStringConcatenation() {
-        Expression expr = new BinaryOpNode("+",
+        Expression expr = new BinaryOpNode(
                 new StringNode("Hello "),
+                "+",
                 new StringNode("World"));
 
         assertEquals("Hello World", expr.evaluate(new Environment()));
@@ -118,8 +124,9 @@ class ExpressionEvalTest {
 
     @Test
     void testMixedConcatenation() {
-        Expression expr = new BinaryOpNode("+",
+        Expression expr = new BinaryOpNode(
                 new StringNode("Value: "),
+                "+",
                 new NumberNode(10));
 
         assertEquals("Value: 10", expr.evaluate(new Environment()));
@@ -131,8 +138,9 @@ class ExpressionEvalTest {
 
     @Test
     void testGreaterThanTrue() {
-        Expression expr = new BinaryOpNode(">",
+        Expression expr = new BinaryOpNode(
                 new NumberNode(5),
+                ">",
                 new NumberNode(3));
 
         assertEquals(true, expr.evaluate(new Environment()));
@@ -140,8 +148,9 @@ class ExpressionEvalTest {
 
     @Test
     void testGreaterThanFalse() {
-        Expression expr = new BinaryOpNode(">",
+        Expression expr = new BinaryOpNode(
                 new NumberNode(2),
+                ">",
                 new NumberNode(3));
 
         assertEquals(false, expr.evaluate(new Environment()));
@@ -149,8 +158,9 @@ class ExpressionEvalTest {
 
     @Test
     void testLessThan() {
-        Expression expr = new BinaryOpNode("<",
+        Expression expr = new BinaryOpNode(
                 new NumberNode(2),
+                "<",
                 new NumberNode(10));
 
         assertEquals(true, expr.evaluate(new Environment()));
@@ -158,8 +168,9 @@ class ExpressionEvalTest {
 
     @Test
     void testEqualityNumbers() {
-        Expression expr = new BinaryOpNode("==",
+        Expression expr = new BinaryOpNode(
                 new NumberNode(5),
+                "==",
                 new NumberNode(5));
 
         assertEquals(true, expr.evaluate(new Environment()));
@@ -167,8 +178,9 @@ class ExpressionEvalTest {
 
     @Test
     void testEqualityStrings() {
-        Expression expr = new BinaryOpNode("==",
+        Expression expr = new BinaryOpNode(
                 new StringNode("hi"),
+                "==",
                 new StringNode("hi"));
 
         assertEquals(true, expr.evaluate(new Environment()));
@@ -180,8 +192,9 @@ class ExpressionEvalTest {
 
     @Test
     void testInvalidOperationOnString() {
-        Expression expr = new BinaryOpNode("-",
+        Expression expr = new BinaryOpNode(
                 new StringNode("hello"),
+                "-",
                 new NumberNode(5));
 
         assertThrows(RuntimeException.class, () -> expr.evaluate(new Environment()));
@@ -189,8 +202,9 @@ class ExpressionEvalTest {
 
     @Test
     void testInvalidOperator() {
-        Expression expr = new BinaryOpNode("%",
+        Expression expr = new BinaryOpNode(
                 new NumberNode(5),
+                "%",
                 new NumberNode(2));
 
         assertThrows(RuntimeException.class, () -> expr.evaluate(new Environment()));
