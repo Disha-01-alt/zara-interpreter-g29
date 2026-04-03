@@ -14,4 +14,9 @@ public class NumberNode implements Expression {
     public Object evaluate(Environment env) {
         return value;
     }
+
+    @Override
+    public String toString() {
+        return "NumberNode(" + value + ")";
+    }
 }
