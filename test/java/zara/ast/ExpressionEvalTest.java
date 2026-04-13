@@ -1,4 +1,3 @@
-package zara.ast;
 
 import org.junit.jupiter.api.Test;
 import zara.runtime.Environment;
@@ -195,5 +194,35 @@ class ExpressionEvalTest {
 
         assertThrows(RuntimeException.class, () -> expr.evaluate(new Environment()));
     }
+
+    // -----------------------------------------------------------------------
+   // 8. BinaryOpNode - Nested expressions (Composite)
+   // -----------------------------------------------------------------------
+
+    @Test
+    void testNestedExpression() {
+        // Represents: x + y * 2  (with x=10, y=3)
+        // Tree:
+        //   BinaryOpNode(+)
+        //   ├── VariableNode("x")        → 10.0
+        //   └── BinaryOpNode(*)
+        //       ├── VariableNode("y")    → 3.0
+        //       └── NumberNode(2)        → 2.0
+        //       result = 3.0 * 2.0 = 6.0
+        // final result = 10.0 + 6.0 = 16.0
+
+        Environment env = new Environment();
+        env.set("x", 10.0);
+        env.set("y", 3.0);
+
+        Expression expr = new BinaryOpNode("+",
+                new VariableNode("x"),
+                new BinaryOpNode("*",
+                        new VariableNode("y"),
+                        new NumberNode(2)));
+
+        assertEquals(16.0, expr.evaluate(env));
+    }
+
 }
 
