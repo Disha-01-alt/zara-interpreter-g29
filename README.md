@@ -61,6 +61,8 @@ zara-interpreter-g29/
 │
 ├── src/main/java/zara/
 │   │
+│   ├── Main.java                     # CLI entry point
+│   │
 │   ├── ast/                          # Expression tree nodes
 │   │   ├── Expression.java           # Interface — evaluate(Environment)
 │   │   ├── NumberNode.java           # Literal number (42, 3.14)
@@ -73,6 +75,10 @@ zara-interpreter-g29/
 │   │   ├── Token.java                # Immutable token data class
 │   │   └── Tokenizer.java            # Source code → List<Token>
 │   │
+│   ├── parser/                       # Parsing (Stage 2)
+│   │   ├── Parser.java               # List<Token> → List<Instruction>
+│   │   └── ParseException.java       # Parser-specific error type
+│   │
 │   ├── instruction/                  # Instruction execution (Stage 3)
 │   │   ├── Instruction.java          # Interface — execute(Environment)
 │   │   ├── AssignInstruction.java    # set x = <expr>
@@ -81,37 +87,42 @@ zara-interpreter-g29/
 │   │   ├── RepeatInstruction.java    # loop <n>: <body>
 │   │   └── BlockInstruction.java     # Sequential instruction block
 │   │
-│   ├── parser/                       # Parsing (Stage 2)
-│   │   └── Parser.java              # List<Token> → List<Instruction>
-│   │
-│   ├── runtime/                      # Runtime components
-│   │   ├── Environment.java          # Variable store (name → value)
-│   │   └── Interpreter.java          # Connects all 3 stages
-│   │
-│   └── Main.java                     # CLI entry point
+│   └── runtime/                      # Runtime components
+│       ├── Environment.java          # Variable store (name → value)
+│       └── Interpreter.java          # Connects all 3 stages
 │
 ├── test/
+│   │
 │   ├── program1.zara                 # Arithmetic & variables
 │   ├── program2.zara                 # String output
 │   ├── program3.zara                 # Conditional (when)
 │   ├── program4.zara                 # Loop
 │   │
 │   └── java/zara/
+│       │
 │       ├── ast/
 │       │   └── ExpressionEvalTest.java
+│       │
 │       ├── instruction/
 │       │   ├── AssignInstructionTest.java
-│       │   ├── PrintInstructionTest.java
+│       │   ├── BlockInstructionTest.java
 │       │   ├── IfInstructionTest.java
-│       │   ├── RepeatInstructionTest.java
-│       │   └── BlockInstructionTest.java
+│       │   ├── PrintInstructionTest.java
+│       │   └── RepeatInstructionTest.java
+│       │
 │       ├── lexer/
 │       │   └── TokenizerTest.java
+│       │
+│       ├── parser/
+│       │   └── ParserTest.java
+│       │
 │       └── runtime/
 │           ├── EnvironmentTest.java
 │           └── InterpreterIntegrationTest.java
 │
 ├── .gitignore
+├── design.md
+├── code_explanation.txt
 └── README.md
 ```
 
@@ -121,7 +132,7 @@ zara-interpreter-g29/
 
 ### Compile
 ```bash
-javac -d out src/main/java/zara/*.java src/main/java/zara/ast/*.java src/main/java/zara/lexer/*.java src/main/java/zara/instruction/*.java src/main/java/zara/parser/*.java src/main/java/zara/runtime/*.java
+javac -d out src/main/java/zara/*.java src/main/java/zara/ast/*.java src/main/java/zara/lexer/*.java src/main/java/zara/parser/*.java src/main/java/zara/instruction/*.java src/main/java/zara/runtime/*.java
 ```
 
 ### Run a ZARA program
@@ -129,11 +140,12 @@ javac -d out src/main/java/zara/*.java src/main/java/zara/ast/*.java src/main/ja
 java -cp out zara.Main test/program1.zara
 ```
 
-### Expected outputs
+### Expected Outputs
+
 | Program | Description | Output |
 |---------|------------|--------|
-| program1.zara | Arithmetic | `16` |
-| program2.zara | Strings | `Sitare` `Hello from ZARA` |
+| program1.zara | Arithmetic & variables | `16` |
+| program2.zara | String output | `Sitare` `Hello from ZARA` |
 | program3.zara | Conditional | `Pass` |
 | program4.zara | Loop | `1` `2` `3` `4` |
 
@@ -181,6 +193,7 @@ Output: `1` `2` `3` `4`
 
 | Class | Package | Responsibility |
 |-------|---------|---------------|
+| Main | `zara` | CLI entry point |
 | TokenType | `zara.lexer` | Enum of all token kinds |
 | Token | `zara.lexer` | Holds one token's type, value, line |
 | Tokenizer | `zara.lexer` | Source string → token list |
@@ -189,32 +202,45 @@ Output: `1` `2` `3` `4`
 | StringNode | `zara.ast` | Literal string → String |
 | VariableNode | `zara.ast` | Variable lookup → env.get() |
 | BinaryOpNode | `zara.ast` | Arithmetic/comparison operations |
+| Parser | `zara.parser` | Tokens → instruction list (AST) |
+| ParseException | `zara.parser` | Parser-specific error type |
 | Instruction | `zara.instruction` | Interface for executable actions |
 | AssignInstruction | `zara.instruction` | Variable assignment |
 | PrintInstruction | `zara.instruction` | Output to console |
 | IfInstruction | `zara.instruction` | Conditional execution |
 | RepeatInstruction | `zara.instruction` | Fixed-count loop |
 | BlockInstruction | `zara.instruction` | Sequential instruction block |
-| Parser | `zara.parser` | Tokens → instruction list (AST) |
 | Environment | `zara.runtime` | Variable store (Map) |
 | Interpreter | `zara.runtime` | Orchestrates the 3-stage pipeline |
-| Main | `zara` | CLI entry point |
 
 ---
 
 ## Test Coverage
 
-| Test File | Tests | Coverage |
-|-----------|-------|----------|
-| AssignInstructionTest | 3 | Store, overwrite, expression eval |
-| PrintInstructionTest | 4 | Integer, decimal, string, variable |
-| IfInstructionTest | 3 | True, false, multiple body |
-| RepeatInstructionTest | 3 | Count, zero, variable increment |
-| BlockInstructionTest | 3 | Sequential, empty, shared env |
-| EnvironmentTest | 5 | Store, overwrite, string, undefined error, multiple |
-| ExpressionEvalTest | — | AST node evaluation |
-| TokenizerTest | — | Lexer token generation |
-| InterpreterIntegrationTest | 4 | Full pipeline end-to-end |
+| Test File | Package | Coverage |
+|-----------|---------|----------|
+| TokenizerTest | `zara.lexer` | Lexer token generation |
+| ExpressionEvalTest | `zara.ast` | AST node evaluation |
+| ParserTest | `zara.parser` | Token list to instruction tree |
+| AssignInstructionTest | `zara.instruction` | Store, overwrite, expression eval |
+| PrintInstructionTest | `zara.instruction` | Integer, decimal, string, variable |
+| IfInstructionTest | `zara.instruction` | True, false, multiple body |
+| RepeatInstructionTest | `zara.instruction` | Count, zero, variable increment |
+| BlockInstructionTest | `zara.instruction` | Sequential, empty, shared env |
+| EnvironmentTest | `zara.runtime` | Store, overwrite, undefined error |
+| InterpreterIntegrationTest | `zara.runtime` | Full pipeline end-to-end |
+
+---
+
+## Design Principles Followed
+
+- **Single Responsibility** — Each class has one clearly defined job
+- **Open/Closed** — New instructions can be added without modifying existing code
+- **Liskov Substitution** — All instructions and expressions are interchangeable via their interfaces
+- **Interface Segregation** — `Instruction` and `Expression` interfaces have single methods
+- **Dependency Inversion** — Executor depends on abstractions, not concrete classes
+- **Immutability** — All node and token fields are `private final`
+- **Fail Fast** — Constructor-level input validation throughout
 
 ---
 
