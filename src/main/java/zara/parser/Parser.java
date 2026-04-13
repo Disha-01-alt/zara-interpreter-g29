@@ -26,6 +26,7 @@ import java.util.List;
  *   2. parseTerm       : *  /
  *   3. parsePrimary    : NUMBER | STRING | IDENTIFIER | ( expression )
  */
+
 public class Parser {
 
     private final List<Token> tokens;
@@ -39,7 +40,7 @@ public class Parser {
         this.pos = 0;
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    // ── Public API ──────────────────────────────────────────
 
     /**
      * Parses the full token stream into a list of executable instructions.
@@ -85,7 +86,7 @@ public class Parser {
         }
     }
 
-    // ── Statement parsers ─────────────────────────────────────────────────────
+    // ── Statement parsers ──────────────────────────────────────────────────
 
     /**
      * Parses:  set <identifier> = <expression> <NEWLINE>

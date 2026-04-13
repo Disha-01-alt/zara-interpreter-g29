@@ -218,4 +218,10 @@ Output: `1` `2` `3` `4`
 
 ---
 
+## Team
 
+| Role | Member | Responsibility |
+|------|--------|---------------|
+| Member 1 | — | Tokenizer (Lexer) |
+| Member 2 | — | Parser & AST |
+| Member 3 | — | Instructions, Interpreter & Testing |
