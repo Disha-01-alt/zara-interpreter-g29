@@ -1,5 +1,7 @@
 package zara.parser;
 
+// Exception for parsing errors with line information
+
 public class ParseException extends RuntimeException {
     private final int line;
 
