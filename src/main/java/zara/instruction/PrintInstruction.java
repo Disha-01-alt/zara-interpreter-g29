@@ -21,19 +21,21 @@ public class PrintInstruction implements Instruction {
             if (result == null) {
                 throw new RuntimeException("Cannot print null value");
             }
-            if (result instanceof Double) {
-                double d = (Double) result;
-                if (d == Math.floor(d)) {
-                    System.out.println((int) d);
-                } else {
-                    System.out.println(d);
-                }
-            } else {
-                System.out.println(result);
-            }
+            System.out.println(format(result));
         } catch (RuntimeException e) {
             throw new RuntimeException("Error in show statement: " + e.getMessage());
         }
+    }
+
+    private String format(Object value) {
+        if (value instanceof Double) {
+            double d = (Double) value;
+            if (d == Math.floor(d)) {
+                return String.valueOf((int) d);
+            }
+            return String.valueOf(d);
+        }
+        return value.toString();
     }
 
     @Override
