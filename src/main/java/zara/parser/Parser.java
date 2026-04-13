@@ -342,8 +342,8 @@ public class Parser {
         TokenType type = current().getType();
         if (type == TokenType.NEWLINE) {
             consume();
-        } else if (type == TokenType.EOF) {
-            // Last statement in source may have no trailing newline
+        } else if (type == TokenType.EOF || type == TokenType.DEDENT) {
+            // Last statement in source or block may have no trailing newline
         } else {
             Token tok = current();
             throw new ParseException(

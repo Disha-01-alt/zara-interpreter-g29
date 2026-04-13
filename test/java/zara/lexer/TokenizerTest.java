@@ -259,16 +259,18 @@ class TokenizerTest {
     @Test
     void spacesAroundTokensAreIgnored() {
         List<Token> tokens = lex("  x  +  y  ");
-        assertEquals(3, tokens.size());
-        assertEquals(TokenType.IDENTIFIER, tokens.get(0).getType());
-        assertEquals(TokenType.PLUS, tokens.get(1).getType());
-        assertEquals(TokenType.IDENTIFIER, tokens.get(2).getType());
+        assertEquals(5, tokens.size());
+        assertEquals(TokenType.INDENT, tokens.get(0).getType());
+        assertEquals(TokenType.IDENTIFIER, tokens.get(1).getType());
+        assertEquals(TokenType.PLUS, tokens.get(2).getType());
+        assertEquals(TokenType.IDENTIFIER, tokens.get(3).getType());
+        assertEquals(TokenType.DEDENT, tokens.get(4).getType());
     }
 
     @Test
     void tabsAroundTokensAreIgnored() {
         List<Token> tokens = lex("\tx\t+\ty\t");
-        assertEquals(3, tokens.size());
+        assertEquals(5, tokens.size());
     }
 
     @Test
@@ -285,10 +287,12 @@ class TokenizerTest {
         // after a block header, lines are indented with spaces
         // the Tokenizer must still produce the correct tokens
         List<Token> tokens = lex("    show \"Pass\"");
-        assertEquals(2, tokens.size());
-        assertEquals(TokenType.SHOW, tokens.get(0).getType());
-        assertEquals(TokenType.STRING, tokens.get(1).getType());
-        assertEquals("Pass", tokens.get(1).getValue());
+        assertEquals(4, tokens.size());
+        assertEquals(TokenType.INDENT, tokens.get(0).getType());
+        assertEquals(TokenType.SHOW, tokens.get(1).getType());
+        assertEquals(TokenType.STRING, tokens.get(2).getType());
+        assertEquals("Pass", tokens.get(2).getValue());
+        assertEquals(TokenType.DEDENT, tokens.get(3).getType());
     }
 
     // ── Line numbers ──────────────────────────────────────────────────────────
