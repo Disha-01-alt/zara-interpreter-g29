@@ -248,6 +248,6 @@ Output: `1` `2` `3` `4`
 
 | Role | Member | Responsibility |
 |------|--------|---------------|
-| Member 1 | Disha Sahu | Tokenizer (Lexer) |
+| Member 1 | Disha Sahu | Code Design, Tokenizer (Lexer) |
 | Member 2 | Satish Mahto | Parser & AST |
 | Member 3 | Shivam Shukla | Instructions, Interpreter & Testing |
