@@ -1,0 +1,5 @@
+set val1 = 1 + 2 * 3 - 8 / 4
+set val2 = "Answer is: " + val1
+show val2
+set val3 = (10 + 5) * 2
+show val3

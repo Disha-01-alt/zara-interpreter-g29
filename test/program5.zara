@@ -1,0 +1,9 @@
+set x = 1
+when x == 1:
+    loop 2:
+        set y = 10
+        when y > 5:
+            loop 1:
+                show "Nest Deep!"
+                set x = x + 1
+show "Done nesting"

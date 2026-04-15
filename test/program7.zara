@@ -1,0 +1,10 @@
+set CaseVar = 100
+set casevar = 50
+
+when CaseVar == 100:
+    show "Variables are perfectly case sensitive!"
+
+set stringA = "zara"
+set stringB = "zara"
+when stringA == stringB:
+    show "String equality works"

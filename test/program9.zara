@@ -1,0 +1,11 @@
+set member1 = "Disha Sahu"
+set member2 = "Shivam Shukla"
+set member3 = "Satish Mahto"
+
+set team = "Group 29 Interpreter Team:"
+show team
+show "1. " + member1
+show "2. " + member2
+show "3. " + member3
+
+show "All systems passing!"

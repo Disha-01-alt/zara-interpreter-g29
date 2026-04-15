@@ -1,0 +1,8 @@
+
+
+set   spaces   =   99  
+
+when spaces > 10:
+    show "Whitespace handled correctly"
+    
+
